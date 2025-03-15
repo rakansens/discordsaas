@@ -1,0 +1,88 @@
+# .clinerules
+
+## Project Patterns
+
+### Naming Conventions
+
+- **Components**: PascalCase (e.g., `BotCard.tsx`, `CommandForm.tsx`)
+- **Hooks**: camelCase with `use` prefix (e.g., `useAuth.ts`, `useBotStatus.ts`)
+- **Utilities**: camelCase (e.g., `encryption.ts`, `formatters.ts`)
+- **API Routes**: kebab-case (e.g., `/api/bot-management`, `/api/command-config`)
+- **Database Tables**: snake_case (e.g., `user_profiles`, `bot_commands`)
+
+### File Structure
+
+- Next.js 14 App Router structure is mandatory
+- Components should be organized by feature in the `components` directory
+- Shared utilities should be placed in the `lib` directory
+- Types should be defined in a central `types` directory or in feature-specific files
+
+### Code Style
+
+- Use TypeScript for all files
+- Prefer functional components with hooks over class components
+- Use arrow functions for component definitions
+- Implement proper TypeScript interfaces for all props and data structures
+- Use async/await for asynchronous operations instead of promises
+
+### State Management
+
+- Use React Context for global state (auth, theme, notifications)
+- Prefer local component state for UI-specific state
+- Use SWR or React Query for data fetching and caching
+- Implement optimistic updates for better user experience
+
+### Security Practices
+
+- Always encrypt sensitive data before storage
+- Use environment variables for all secrets and API keys
+- Implement proper input validation on both client and server
+- Follow the principle of least privilege for database access
+
+## User Preferences
+
+- Japanese is the primary language, with English planned for future support
+- Dark theme is preferred as the default UI theme
+- Responsive design is essential, with mobile support as a secondary priority
+- Subtle animations are preferred for state changes and transitions
+
+## Known Challenges
+
+- Integration between NextAuth.js and Supabase requires careful configuration
+- Real-time updates need optimization to prevent performance issues
+- Bot token encryption/decryption must be handled securely
+- File uploads need proper validation and optimization
+- Mock data should be centralized in shared modules to avoid duplication
+- Type safety must be maintained across API boundaries
+- API error handling should be consistent across all endpoints
+- Authentication state management requires careful implementation to prevent redirect loops
+- SVG images can cause hydration errors in Next.js if not properly handled
+  - Solution: Use client-side only rendering for SVG components with useEffect and useState
+  - Alternative: Use Image component with .svg files instead of inline SVG
+  - Implementation: Add isClient state variable and useEffect to set it to true after mount
+  - Usage: Wrap SVG components with conditional rendering based on isClient state
+- Development-only authentication bypass should be implemented with caution
+  - Solution: Use environment variables to control authentication bypass
+  - Implementation: Add NEXT_PUBLIC_SKIP_AUTH=true to .env.local for client-side access
+  - Usage: Check for this variable in useAuth hook and page components
+
+## Development Workflow
+
+- Use feature branches for new development
+- Follow conventional commits for commit messages
+- Run linting and type checking before commits
+- Test all features in both development and production environments
+
+## Documentation Standards
+
+- Add JSDoc comments for all functions and components
+- Keep the memory bank updated with all significant changes
+- Document API endpoints with request/response examples
+- Include rationale for complex implementations or architectural decisions
+
+## Performance Guidelines
+
+- Optimize images and assets for web delivery
+- Implement code splitting for large components
+- Use server components where appropriate to reduce client-side JavaScript
+- Cache API responses and database queries when possible

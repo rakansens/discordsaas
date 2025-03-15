@@ -1,0 +1,115 @@
+---
+description: Apply these rules when creating the project
+globs:
+alwaysApply: true
+---
+## Project Overview
+
+*   **Type:** cursor_project_rules
+*   **Description:** Discord BOT コントロールセンター - Supabase & Google認証対応版
+*   **Primary Goal:** Implement a robust Discord Bot Control Center leveraging Supabase as the primary backend along with integrated Discord and Google authentication to manage bot creation, command configuration, and real-time status monitoring.
+
+## Project Structure
+
+### Framework-Specific Routing
+
+*   **Directory Rules:**
+
+    *   **Next.js 14 (App Router):** Enforce the use of the `app/` directory with nested route folders.
+    *   Example 1: “Next.js 14 (App Router)” → Follow the `app/[route]/page.tsx` conventions for page components.
+    *   Example 2: If using the Pages Router, use a flat `pages/[route].tsx` structure. (Not applicable here)
+    *   Example 3: For React Router 6, organize routes under `src/routes/` using `createBrowserRouter`.
+
+### Core Directories
+
+*   **Versioned Structure:**
+
+    *   **app:** Primary directory for Next.js pages and API routes (e.g., authentication, dashboard, bot management).
+    *   **components:** Contains reusable React components including layout and UI elements (integrating shadcn/ui components).
+    *   **hooks:** Custom React hooks (e.g., for bot management, Supabase subscription, UI notifications).
+    *   **lib:** Utility libraries and integrations (e.g., Supabase client, encryption, and API connectors).
+    *   **public:** Static assets such as images and fonts.
+
+### Key Files
+
+*   **Stack-Versioned Patterns:**
+
+    *   **app/layout.tsx:** Root layout configuration for Next.js 14 App Router projects.
+    *   **app/api/[...].ts:** API routes utilizing Next.js API Routes with Supabase integration.
+    *   **pages/api/auth/[...nextauth].js:** NextAuth.js configuration file handling Discord and Google OAuth.
+
+## Tech Stack Rules
+
+*   **Version Enforcement:**
+
+    *   **Next.js@14:** Must use the App Router in the `app/` directory with nested folders; avoid mixing with the Pages Router pattern.
+    *   **React & TypeScript:** Adhere to modern React (functional components & hooks) with strict TypeScript typing.
+    *   **Tailwind CSS & shadcn/ui:** Utilize Tailwind configurations and shadcn/ui component guidelines for a consistent design system.
+    *   **NextAuth.js:** Enforce secure OAuth flows with Discord and Google providers, integrating with the Supabase adapter.
+    *   **Supabase:** Use Supabase for database (PostgreSQL), authentication, real-time updates, and storage with enforced Row Level Security (RLS).
+
+## PRD Compliance
+
+*   **Non-Negotiable:**
+
+    *   "Use Supabase as the main backend with full integration of Discord and Google OAuth for secure authentication and bot management."
+    *   All sensitive tokens and API credentials should be encrypted using AES-256-GCM and securely stored via environment variables.
+    *   Enforce strict RLS policies to ensure users can only access their own data.
+
+## App Flow Integration
+
+*   **Stack-Aligned Flow:**
+
+    *   Example: "Next.js 14 Auth Flow → `app/auth/login/page.tsx` uses server actions to initiate authentication with NextAuth.js and Supabase."
+    *   Bot management, command configuration, and real-time notifications should be mapped to their respective routes and components within the `app/` directory.
+
+## Best Practices
+
+*   **Next.js**
+
+    *   Always use the App Router (`app/` directory) for new projects to take advantage of server components and improved routing.
+    *   Structure your components and pages in a modular and scalable manner.
+    *   Optimize performance by using static generation and server-side rendering where appropriate.
+
+*   **React**
+
+    *   Use functional components along with hooks to manage state and side effects.
+    *   Keep component logic clean and modular; separate concerns by utilizing custom hooks for business logic.
+    *   Use React Context or other state management solutions for shared global state.
+
+*   **TypeScript**
+
+    *   Enforce strict typing and interfaces for component props and API responses.
+    *   Utilize TypeScript’s type inference to reduce boilerplate and catch errors early during development.
+    *   Define centralized types (e.g., in a `types/` directory) for consistency across the codebase.
+
+*   **Tailwind CSS & shadcn/ui**
+
+    *   Follow Tailwind CSS utility class conventions to maintain consistency and rapid styling.
+    *   Keep the design system modular with reusable UI components from shadcn/ui.
+    *   Use Tailwind’s configuration files to enforce design tokens (colors, fonts, etc.) aligned with the Discord-themed modern look.
+
+*   **NextAuth.js**
+
+    *   Ensure that provider configurations (Discord, Google) are securely managed through environment variables.
+    *   Implement robust session callbacks to include essential user data without exposing sensitive information.
+    *   Regularly update authentication libraries to keep security measures up to date.
+
+*   **Supabase**
+
+    *   Leverage Supabase’s built-in features for authentication, real-time updates, and storage.
+    *   Always enforce Row Level Security (RLS) policies to restrict data access appropriately.
+    *   Use Supabase migrations for systematic database updates and consistent schema management.
+
+*   **Encryption & Security**
+
+    *   Use AES-256-GCM for all sensitive data encryption (tokens, credentials) before storage.
+    *   Manage keys securely through environment variables and backend-only decryption.
+    *   Regularly audit dependencies and conduct vulnerability assessments to maintain a secure application environment.
+
+## Rules
+
+*   Derive folder/file patterns **directly** from the provided tech stack versions and the starter kit structure.
+*   If using Next.js 14 App Router: Enforce the `app/` directory with nested route folders, avoiding any usage of the `pages/` directory for new routes.
+*   For technologies like React Router, SvelteKit, etc., mirror the logic of abiding by their respective routing conventions if these are applied in the future.
+*   Never mix version-specific patterns (e.g., do not use both `pages/` and `app/` structures in the same project).
