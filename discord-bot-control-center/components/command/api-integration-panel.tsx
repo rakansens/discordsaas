@@ -54,8 +54,23 @@ export function ApiIntegrationPanel({
 
   // 設定が変更されたときに親コンポーネントに通知
   useEffect(() => {
-    onChange(config);
-  }, [config, onChange]);
+    // 初期設定と現在の設定を比較
+    const initialConfigStr = JSON.stringify({
+      ...defaultApiConfig,
+      ...initialApiConfig,
+      settings: {
+        ...defaultApiConfig.settings,
+        ...initialApiConfig.settings
+      }
+    });
+    const currentConfigStr = JSON.stringify(config);
+    
+    // 設定が変更された場合のみ通知
+    if (initialConfigStr !== currentConfigStr) {
+      onChange(config);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config]);
 
   // APIサービスを変更
   const handleServiceChange = (service: ApiService) => {

@@ -126,8 +126,8 @@ const mockCommands: Command[] = [
     promptId: null,
     enabled: true,
     outputDestination: { 
-      type: "channels", 
-      allowedChannels: ["345678901234567890", "456789012345678901"] 
+      type: "channel", 
+      channelIds: ["345678901234567890", "456789012345678901"] 
     }, // 特定のチャンネルにのみ出力
     createdAt: "2025-03-10T10:00:00Z",
     updatedAt: "2025-03-10T10:00:00Z"
@@ -280,6 +280,9 @@ export default function CommandsPage() {
 
     // テンプレートにアウトプット先の設定があれば使用し、なければデフォルト値を使用
     const outputDestination = selectedTemplate.defaultCommand.outputDestination || { type: "global" };
+    
+    // テンプレートにAPI連携フローの設定があれば使用
+    const apiFlow = selectedTemplate.defaultCommand.apiFlow;
 
     return {
       botId: selectedBotId,
@@ -291,7 +294,8 @@ export default function CommandsPage() {
         .join(" ")}`,
       promptId: null,
       enabled: true,
-      outputDestination // テンプレートからのアウトプット先設定
+      outputDestination, // テンプレートからのアウトプット先設定
+      apiFlow // テンプレートからのAPI連携フロー設定
     };
   };
 

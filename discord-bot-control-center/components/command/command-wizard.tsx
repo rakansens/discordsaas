@@ -30,6 +30,7 @@ import { WizardStep, CommandWizardProps, createEmptyCommand, stepInfo } from "./
 // 各ステップのコンポーネントをインポート
 import { BasicStep } from "./command-wizard-steps/basic-step"
 import { ApiStep } from "./command-wizard-steps/api-step"
+import { ApiFlowStep } from "./command-wizard-steps/api-flow-step"
 import { OptionsStep } from "./command-wizard-steps/options-step"
 import { OutputStep } from "./command-wizard-steps/output-step"
 import { PromptStep } from "./command-wizard-steps/prompt-step"
@@ -73,21 +74,30 @@ export function CommandWizard({
 
   // コマンド情報の更新
   const updateCommand = (updates: Partial<Command>) => {
-    setCommand({
-      ...command,
-      ...updates
-    });
+    // 現在の状態と比較して、変更がある場合のみ更新
+    if (JSON.stringify(updates) !== JSON.stringify(command)) {
+      setCommand(prevCommand => ({
+        ...prevCommand,
+        ...updates
+      }));
+    }
   };
 
   // API設定の更新
   const updateApiConfig = (config: ApiConfig) => {
-    setApiConfig(config);
+    // 現在の状態と比較して、変更がある場合のみ更新
+    if (JSON.stringify(config) !== JSON.stringify(apiConfig)) {
+      setApiConfig(config);
+    }
   };
 
   // プロンプトの更新
   const updatePrompt = (content: string, variables: string[]) => {
-    setPromptContent(content);
-    setPromptVariables(variables);
+    // 現在の状態と比較して、変更がある場合のみ更新
+    if (content !== promptContent || JSON.stringify(variables) !== JSON.stringify(promptVariables)) {
+      setPromptContent(content);
+      setPromptVariables(variables);
+    }
   };
 
   // 現在のステップのバリデーション
@@ -129,6 +139,14 @@ export function CommandWizard({
         setCurrentStep("api");
         break;
       case "api":
+        // APIフローが設定されている場合はAPIフローステップへ
+        if (command.apiFlow && command.apiFlow.length > 0) {
+          setCurrentStep("api-flow");
+        } else {
+          setCurrentStep("options");
+        }
+        break;
+      case "api-flow":
         setCurrentStep("options");
         break;
       case "options":
@@ -152,8 +170,15 @@ export function CommandWizard({
       case "api":
         setCurrentStep("basic");
         break;
-      case "options":
+      case "api-flow":
         setCurrentStep("api");
+        break;
+      case "options":
+        if (command.apiFlow && command.apiFlow.length > 0) {
+          setCurrentStep("api-flow");
+        } else {
+          setCurrentStep("api");
+        }
         break;
       case "output":
         setCurrentStep("options");
@@ -175,7 +200,7 @@ export function CommandWizard({
       prompt: promptContent ? {
         content: promptContent,
         variables: promptVariables,
-        apiIntegration: apiConfig?.service !== "none" ? apiConfig?.service : null
+        apiIntegration: apiConfig?.service !== "none" ? apiConfig?.service as string : null
       } : undefined
     };
     
@@ -220,7 +245,32 @@ export function CommandWizard({
       case "basic":
         return <BasicStep {...stepProps} />;
       case "api":
-        return <ApiStep {...stepProps} />;
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium">API連携設定</h3>
+              <Button 
+                variant="default" 
+                size="sm"
+                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-medium"
+                onClick={() => setCurrentStep("api-flow")}
+              >
+                <span className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 3v12"></path>
+                    <circle cx="18" cy="6" r="3"></circle>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <path d="M18 9a9 9 0 0 1-9 9"></path>
+                  </svg>
+                  複数API連携フローを設定
+                </span>
+              </Button>
+            </div>
+            <ApiStep {...stepProps} />
+          </div>
+        );
+      case "api-flow":
+        return <ApiFlowStep {...stepProps} />;
       case "options":
         return <OptionsStep {...stepProps} />;
       case "output":
@@ -236,8 +286,12 @@ export function CommandWizard({
 
   // ステップナビゲーションの表示
   const renderStepNavigation = () => {
+    // api-flowステップはナビゲーションには表示しない（apiステップの一部として扱う）
     const steps: WizardStep[] = ["basic", "api", "options", "output", "prompt", "review"];
-    const currentIndex = steps.indexOf(currentStep);
+    // 現在のステップがapi-flowの場合は、apiのインデックスを使用
+    const currentIndex = currentStep === "api-flow" 
+      ? steps.indexOf("api") 
+      : steps.indexOf(currentStep);
 
     return (
       <div className="flex items-center justify-between mb-8">

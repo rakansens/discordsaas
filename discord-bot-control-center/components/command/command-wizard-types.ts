@@ -10,7 +10,7 @@ import { Command, CommandOption, CommandOutputDestination } from "@/types/comman
 import { ApiConfig } from "@/types/api-config"
 
 // ウィザードのステップ
-export type WizardStep = "basic" | "api" | "options" | "output" | "prompt" | "review";
+export type WizardStep = "basic" | "api" | "api-flow" | "options" | "output" | "prompt" | "review";
 
 // ステップの情報の型定義
 export interface StepInfo {
@@ -29,6 +29,11 @@ export const stepInfo: Record<WizardStep, StepInfo> = {
   "api": {
     title: "API設定",
     description: "選択したAPIの詳細設定",
+    iconName: "Braces"
+  },
+  "api-flow": {
+    title: "複数API連携",
+    description: "複数のAPIサービスを連携させるフローを設定",
     iconName: "Braces"
   },
   "options": {
