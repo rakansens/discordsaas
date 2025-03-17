@@ -6,6 +6,10 @@
 import { Bot } from "@/types/bot";
 import { encrypt } from "@/lib/encryption";
 
+// 環境変数からトークンを取得
+const discordBotToken = process.env.DISCORD_BOT_TOKEN || "mock-token-for-discord-bot";
+const discordClientId = process.env.DISCORD_CLIENT_ID || "1350649877352157184";
+
 // Mock data for development
 // In a real implementation, this would be stored in Supabase
 export let mockBots: Bot[] = [
@@ -13,8 +17,8 @@ export let mockBots: Bot[] = [
     id: "1",
     userId: "1",
     name: "Discord Bot",
-    clientId: "1350649877352157184",
-    encryptedToken: encrypt("mock-token-for-discord-bot"),
+    clientId: discordClientId,
+    encryptedToken: encrypt(discordBotToken),
     avatarUrl: "/placeholder-bot-1.svg",
     status: "online",
     settings: {
