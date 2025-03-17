@@ -49,7 +49,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { useSupabaseMcp } from "@/hooks/useSupabaseMcp"
 
 // コマンドフックのモック（実際の実装は別途行う）
 const useCommands = () => {
@@ -82,6 +81,158 @@ interface BotData {
   commands?: number;
 }
 
+// APIを直接呼び出すためのフック
+const useBotsApi = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // ボット一覧の取得
+  const getBots = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/bots');
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setLoading(false);
+      return data;
+    } catch (err) {
+      console.error('Error fetching bots:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setLoading(false);
+      return null;
+    }
+  };
+  
+  // 特定のボットの取得
+  const getBot = async (id: number) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/bots?id=${id}`);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setLoading(false);
+      return data;
+    } catch (err) {
+      console.error(`Error fetching bot ${id}:`, err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setLoading(false);
+      return null;
+    }
+  };
+  
+  // ボットの追加
+  const addBot = async (name: string, clientId: string, token: string, userId: string, avatarUrl?: string) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/bots', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          clientId,
+          token,
+          userId,
+          avatarUrl
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setLoading(false);
+      return data;
+    } catch (err) {
+      console.error('Error adding bot:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setLoading(false);
+      return null;
+    }
+  };
+  
+  // ボットの編集
+  const editBot = async (id: number, updates: any) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/bots', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id,
+          ...updates
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setLoading(false);
+      return data;
+    } catch (err) {
+      console.error(`Error updating bot ${id}:`, err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setLoading(false);
+      return null;
+    }
+  };
+  
+  // ボットの削除
+  const removeBot = async (id: number) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/bots?id=${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setLoading(false);
+      return data;
+    } catch (err) {
+      console.error(`Error deleting bot ${id}:`, err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setLoading(false);
+      return null;
+    }
+  };
+  
+  return {
+    getBots,
+    getBot,
+    addBot,
+    editBot,
+    removeBot,
+    loading,
+    error
+  };
+};
+
 export default function BotsPage() {
   const { data: session } = useSession()
   const { toast } = useToast()
@@ -94,7 +245,7 @@ export default function BotsPage() {
     removeBot,
     loading,
     error 
-  } = useSupabaseMcp()
+  } = useBotsApi()
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -329,6 +480,7 @@ export default function BotsPage() {
                       placeholder="例: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0.abcdef.ghijklmnopqrstuvwxyz"
                       value={newBotData.token}
                       onChange={(e) => setNewBotData({...newBotData, token: e.target.value})}
+                      autoComplete="new-password"
                     />
                     <p className="text-xs text-muted-foreground">
                       トークンは暗号化されて保存され、他のユーザーには表示されません。
