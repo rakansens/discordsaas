@@ -119,7 +119,7 @@ export default function BotsPage() {
         
         if (botsData) {
           // UI表示用のデータを追加
-          const enhancedBots = botsData.map(bot => ({
+          const enhancedBots = botsData.map((bot: any) => ({
             ...bot,
             servers: bot.settings?.servers?.length || 0,
             commands: commandCounts[bot.id] || 0
@@ -298,57 +298,62 @@ export default function BotsPage() {
                   新しいDiscordボットの詳細を入力してください。ボットトークンは暗号化されて保存されます。
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">ボット名</Label>
-                  <Input 
-                    id="name" 
-                    placeholder="例: Moderation Bot" 
-                    value={newBotData.name}
-                    onChange={(e) => setNewBotData({...newBotData, name: e.target.value})}
-                  />
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateBot();
+              }}>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">ボット名</Label>
+                    <Input
+                      id="name"
+                      placeholder="例: Moderation Bot"
+                      value={newBotData.name}
+                      onChange={(e) => setNewBotData({...newBotData, name: e.target.value})}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="clientId">クライアントID</Label>
+                    <Input
+                      id="clientId"
+                      placeholder="例: 123456789012345678"
+                      value={newBotData.clientId}
+                      onChange={(e) => setNewBotData({...newBotData, clientId: e.target.value})}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="token">ボットトークン</Label>
+                    <Input
+                      id="token"
+                      type="password"
+                      placeholder="例: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0.abcdef.ghijklmnopqrstuvwxyz"
+                      value={newBotData.token}
+                      onChange={(e) => setNewBotData({...newBotData, token: e.target.value})}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      トークンは暗号化されて保存され、他のユーザーには表示されません。
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="avatar">アバター画像URL（オプション）</Label>
+                    <Input
+                      id="avatar"
+                      placeholder="例: https://example.com/avatar.png"
+                      value={newBotData.avatarUrl}
+                      onChange={(e) => setNewBotData({...newBotData, avatarUrl: e.target.value})}
+                    />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="clientId">クライアントID</Label>
-                  <Input 
-                    id="clientId" 
-                    placeholder="例: 123456789012345678" 
-                    value={newBotData.clientId}
-                    onChange={(e) => setNewBotData({...newBotData, clientId: e.target.value})}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="token">ボットトークン</Label>
-                  <Input 
-                    id="token" 
-                    type="password" 
-                    placeholder="例: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0.abcdef.ghijklmnopqrstuvwxyz" 
-                    value={newBotData.token}
-                    onChange={(e) => setNewBotData({...newBotData, token: e.target.value})}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    トークンは暗号化されて保存され、他のユーザーには表示されません。
-                  </p>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="avatar">アバター画像URL（オプション）</Label>
-                  <Input 
-                    id="avatar" 
-                    placeholder="例: https://example.com/avatar.png" 
-                    value={newBotData.avatarUrl}
-                    onChange={(e) => setNewBotData({...newBotData, avatarUrl: e.target.value})}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isSubmitting}>
-                  キャンセル
-                </Button>
-                <Button onClick={handleCreateBot} disabled={isSubmitting || !newBotData.name || !newBotData.clientId || !newBotData.token}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  作成
-                </Button>
-              </DialogFooter>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isSubmitting} type="button">
+                    キャンセル
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting || !newBotData.name || !newBotData.clientId || !newBotData.token}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    作成
+                  </Button>
+                </DialogFooter>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
