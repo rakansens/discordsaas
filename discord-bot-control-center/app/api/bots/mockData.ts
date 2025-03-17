@@ -12,9 +12,9 @@ export let mockBots: Bot[] = [
   {
     id: "1",
     userId: "1",
-    name: "Moderation Bot",
-    clientId: "123456789012345678",
-    encryptedToken: encrypt("mock-token-for-moderation-bot"),
+    name: "Discord Bot",
+    clientId: "1350649877352157184",
+    encryptedToken: encrypt("MTM1MDY0OTg3NzM1MjE1NzE4NA.GOhGFf.Yk-CA6IFM60BWT7ggCMWLF-BY362ozRcdJurK4"),
     avatarUrl: "/placeholder-bot-1.svg",
     status: "online",
     settings: {
@@ -22,9 +22,27 @@ export let mockBots: Bot[] = [
       autoRestart: true,
       logLevel: "info",
     },
-    lastActive: "2025-03-13T01:23:45Z",
-    createdAt: "2025-01-15T12:00:00Z",
-    updatedAt: "2025-03-12T18:30:00Z",
+    servers: [
+      {
+        id: "1234567890123456789",
+        name: "テストサーバー",
+        enabled: true,
+        channels: [
+          {
+            id: "9876543210987654321",
+            name: "一般",
+            enabled: true,
+            threadSettings: {
+              enabled: true,
+              allowedThreads: []
+            }
+          }
+        ]
+      }
+    ],
+    lastActive: "2025-03-16T11:38:00Z",
+    createdAt: "2025-03-16T10:00:00Z",
+    updatedAt: "2025-03-16T11:38:00Z",
   },
   {
     id: "2",
@@ -39,6 +57,14 @@ export let mockBots: Bot[] = [
       autoRestart: true,
       logLevel: "info",
     },
+    servers: [
+      {
+        id: "1234567890123456789",
+        name: "テストサーバー",
+        enabled: true,
+        channels: []
+      }
+    ],
     lastActive: "2025-03-13T02:34:56Z",
     createdAt: "2025-02-01T09:15:00Z",
     updatedAt: "2025-03-10T14:20:00Z",
@@ -56,6 +82,14 @@ export let mockBots: Bot[] = [
       autoRestart: false,
       logLevel: "warn",
     },
+    servers: [
+      {
+        id: "1234567890123456789",
+        name: "テストサーバー",
+        enabled: true,
+        channels: []
+      }
+    ],
     lastActive: "2025-03-12T12:45:12Z",
     createdAt: "2025-02-15T16:30:00Z",
     updatedAt: "2025-03-05T11:10:00Z",
@@ -73,6 +107,14 @@ export let mockBots: Bot[] = [
       autoRestart: true,
       logLevel: "debug",
     },
+    servers: [
+      {
+        id: "1234567890123456789",
+        name: "テストサーバー",
+        enabled: true,
+        channels: []
+      }
+    ],
     lastActive: "2025-03-12T18:12:33Z",
     createdAt: "2025-03-01T10:00:00Z",
     updatedAt: "2025-03-11T09:45:00Z",

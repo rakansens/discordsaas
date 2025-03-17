@@ -2,12 +2,14 @@
  * Command Wizard Types
  * Created: 2025/3/15
  * Updated: 2025/3/15 - stepInfoオブジェクトを追加
+ * Updated: 2025/3/16 - onSaveプロパティの型を更新し、Supabase MCPサーバーとの連携に対応
  * 
  * このファイルには、コマンドウィザードで使用される型定義とユーティリティ関数が含まれています。
  */
 
 import { Command, CommandOption, CommandOutputDestination } from "@/types/command"
 import { ApiConfig } from "@/types/api-config"
+import { CreateCommandRequest, UpdateCommandRequest } from "@/hooks/useCommandsMcp"
 
 // ウィザードのステップ
 export type WizardStep = "basic" | "api" | "api-flow" | "options" | "output" | "prompt" | "review";
@@ -74,7 +76,7 @@ export interface CommandWizardProps {
   initialCommand?: Partial<Command>;
   initialApiConfig?: ApiConfig | null;
   initialPromptContent?: string;
-  onSave: (command: Partial<Command>) => void;
+  onSave: (command: Partial<Command> | CreateCommandRequest | UpdateCommandRequest) => void;
   onCancel: () => void;
 }
 

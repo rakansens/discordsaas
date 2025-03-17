@@ -18,7 +18,8 @@ import {
   Menu, 
   Moon, 
   Sun, 
-  User
+  User,
+  FileCode
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -94,6 +95,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     { href: "/dashboard", icon: isClient ? <Home size={20} /> : null, label: "ダッシュボード" },
     { href: "/bots", icon: isClient ? <Bot size={20} /> : null, label: "ボット管理" },
     { href: "/commands", icon: isClient ? <Terminal size={20} /> : null, label: "コマンド設定" },
+    { href: "/templates", icon: isClient ? <FileCode size={20} /> : null, label: "テンプレート管理" },
     { href: "/settings", icon: isClient ? <Settings size={20} /> : null, label: "設定" },
   ]
 

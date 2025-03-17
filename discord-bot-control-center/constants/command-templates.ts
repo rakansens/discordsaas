@@ -19,7 +19,16 @@ import {
   YOUTUBE_ANALYSIS_TEMPLATE,
   MEETING_MINUTES_TEMPLATE,
   TRANSLATION_SUMMARY_TEMPLATE,
-  IMAGE_GENERATION_DESCRIPTION_TEMPLATE
+  IMAGE_GENERATION_DESCRIPTION_TEMPLATE,
+  LOG_ANALYSIS_ASSISTANT_TEMPLATE,
+  AI_CONVERSATION_ASSISTANT_TEMPLATE,
+  LINK_SEARCH_SUMMARY_ASSISTANT_TEMPLATE,
+  VOICE_RECOGNITION_ASSISTANT_TEMPLATE,
+  PERSONAL_KNOWLEDGE_BASE_TEMPLATE,
+  NEWS_TREND_ANALYSIS_TEMPLATE,
+  SMART_NOTE_TAKING_TEMPLATE,
+  SCHEDULE_OPTIMIZATION_TEMPLATE,
+  ROLE_MANAGEMENT_TEMPLATE
 } from "./api-flow-templates";
 
 // カテゴリ情報
@@ -47,6 +56,12 @@ export const TEMPLATE_CATEGORIES: CategoryInfo[] = [
     name: "ユーティリティ",
     description: "通知、リマインダー、投票など",
     icon: "Wrench"
+  },
+  {
+    id: "community",
+    name: "コミュニティ管理",
+    description: "ロール管理、モデレーション、メンバー分析など",
+    icon: "Users"
   },
   {
     id: "api-flow",
@@ -781,6 +796,246 @@ URL: {url}
       outputDestination: { type: "global" } // グローバル（制限なし）
     },
     requiredPermissions: ["ファイルの添付", "メッセージの送信"]
+  },
+
+  // パーソナルナレッジベースアシスタント
+  {
+    id: "personal-knowledge-base",
+    name: "ナレッジベースアシスタント",
+    description: "サーバー内の知識を整理・検索可能にします",
+    category: "information",
+    difficulty: "intermediate",
+    tags: ["ai", "knowledge-base", "analysis"],
+    popular: true,
+    thumbnail: "/templates/knowledge-base.svg",
+    defaultCommand: {
+      name: "knowledge",
+      description: "ナレッジベースを操作します",
+      options: [
+        {
+          name: "action",
+          description: "実行するアクション",
+          type: "string",
+          required: true,
+          choices: [
+            { name: "追加", value: "add" },
+            { name: "検索", value: "search" },
+            { name: "更新", value: "update" },
+            { name: "一覧", value: "list" }
+          ]
+        },
+        {
+          name: "content",
+          description: "追加/検索するコンテンツ",
+          type: "string",
+          required: false
+        },
+        {
+          name: "category",
+          description: "カテゴリ",
+          type: "string",
+          required: false
+        }
+      ],
+      apiFlow: PERSONAL_KNOWLEDGE_BASE_TEMPLATE,
+      outputDestination: { type: "global" } // グローバル（制限なし）
+    },
+    requiredPermissions: ["メッセージの送信", "メッセージ履歴の閲覧"]
+  },
+
+  // ニュース・トレンド分析アシスタント
+  {
+    id: "news-trend-analysis",
+    name: "ニュース・トレンド分析",
+    description: "特定トピックの最新ニュースと分析を提供",
+    category: "information",
+    difficulty: "intermediate",
+    tags: ["news", "trend-analysis", "search"],
+    popular: true,
+    thumbnail: "/templates/news-analysis.svg",
+    defaultCommand: {
+      name: "news-trends",
+      description: "ニュースとトレンドを分析します",
+      options: [
+        {
+          name: "topic",
+          description: "分析するトピック",
+          type: "string",
+          required: true
+        },
+        {
+          name: "period",
+          description: "期間",
+          type: "string",
+          required: false,
+          choices: [
+            { name: "今日", value: "today" },
+            { name: "今週", value: "week" },
+            { name: "今月", value: "month" }
+          ]
+        },
+        {
+          name: "visualization",
+          description: "視覚化の有無",
+          type: "boolean",
+          required: false
+        }
+      ],
+      apiFlow: NEWS_TREND_ANALYSIS_TEMPLATE,
+      outputDestination: { type: "global" } // グローバル（制限なし）
+    },
+    requiredPermissions: ["メッセージの送信", "埋め込みリンクの送信"]
+  },
+
+  // スマートノートテイキングアシスタント
+  {
+    id: "smart-note-taking",
+    name: "スマートノートテイキング",
+    description: "会話から重要情報を抽出し、構造化されたノートを作成",
+    category: "utility",
+    difficulty: "intermediate",
+    tags: ["note-taking", "ai", "summary"],
+    popular: true,
+    thumbnail: "/templates/smart-notes.svg",
+    defaultCommand: {
+      name: "take-notes",
+      description: "会話からノートを作成します",
+      options: [
+        {
+          name: "channel",
+          description: "対象チャンネル",
+          type: "channel",
+          required: false
+        },
+        {
+          name: "period",
+          description: "期間",
+          type: "string",
+          required: false,
+          choices: [
+            { name: "最新100件", value: "latest" },
+            { name: "今日", value: "today" },
+            { name: "昨日", value: "yesterday" },
+            { name: "先週", value: "week" }
+          ]
+        },
+        {
+          name: "format",
+          description: "ノート形式",
+          type: "string",
+          required: false,
+          choices: [
+            { name: "標準", value: "standard" },
+            { name: "詳細", value: "detailed" },
+            { name: "アクションアイテム重視", value: "action-focused" }
+          ]
+        }
+      ],
+      apiFlow: SMART_NOTE_TAKING_TEMPLATE,
+      outputDestination: { 
+        type: "threads", 
+        allowedThreads: [] 
+      } // スレッドに出力
+    },
+    requiredPermissions: ["メッセージの送信", "メッセージ履歴の閲覧", "スレッドの作成"]
+  },
+
+  // スケジュール最適化アシスタント
+  {
+    id: "schedule-optimization",
+    name: "スケジュール最適化",
+    description: "チームのスケジュール調整を支援するツール",
+    category: "utility",
+    difficulty: "intermediate",
+    tags: ["schedule", "utility", "business"],
+    popular: false,
+    thumbnail: "/templates/schedule-optimization.svg",
+    defaultCommand: {
+      name: "optimize-schedule",
+      description: "スケジュールを最適化します",
+      options: [
+        {
+          name: "team_members",
+          description: "チームメンバー（カンマ区切り）",
+          type: "string",
+          required: true
+        },
+        {
+          name: "tasks",
+          description: "タスク（カンマ区切り）",
+          type: "string",
+          required: true
+        },
+        {
+          name: "deadline",
+          description: "締め切り（YYYY-MM-DD）",
+          type: "string",
+          required: false
+        },
+        {
+          name: "constraints",
+          description: "制約条件",
+          type: "string",
+          required: false
+        }
+      ],
+      apiFlow: SCHEDULE_OPTIMIZATION_TEMPLATE,
+      outputDestination: { type: "global" } // グローバル（制限なし）
+    },
+    requiredPermissions: ["メッセージの送信"]
+  },
+
+  // ロールマネジメントアシスタント
+  {
+    id: "role-management",
+    name: "ロールマネジメント",
+    description: "サーバーロールの最適化と自動管理",
+    category: "community",
+    difficulty: "advanced",
+    tags: ["community", "role-management", "moderation"],
+    popular: true,
+    thumbnail: "/templates/role-management.svg",
+    defaultCommand: {
+      name: "manage-roles",
+      description: "サーバーロールを管理します",
+      options: [
+        {
+          name: "action",
+          description: "実行するアクション",
+          type: "string",
+          required: true,
+          choices: [
+            { name: "分析", value: "analyze" },
+            { name: "最適化提案", value: "optimize" },
+            { name: "自動ロール設定", value: "auto-assign" },
+            { name: "レポート", value: "report" }
+          ]
+        },
+        {
+          name: "target_role",
+          description: "対象ロール（任意）",
+          type: "role",
+          required: false
+        },
+        {
+          name: "detail_level",
+          description: "詳細レベル",
+          type: "string",
+          required: false,
+          choices: [
+            { name: "簡潔", value: "brief" },
+            { name: "標準", value: "standard" },
+            { name: "詳細", value: "detailed" }
+          ]
+        }
+      ],
+      apiFlow: ROLE_MANAGEMENT_TEMPLATE,
+      outputDestination: { 
+        type: "channel", 
+        channelIds: [] 
+      } // 特定のチャンネルにのみ出力
+    },
+    requiredPermissions: ["メッセージの送信", "ロールの管理", "メンバーの管理"]
   }
 ];
 

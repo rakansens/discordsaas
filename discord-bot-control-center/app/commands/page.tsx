@@ -6,11 +6,12 @@
  * Updated: 2025/3/14 - テンプレートベースのコマンド作成フローを追加
  * Updated: 2025/3/14 - ファイル構造を整理し、重複コードを削除
  * Updated: 2025/3/15 - コマンドのアウトプット先設定を追加
+ * Updated: 2025/3/16 - Supabase MCPサーバーとの連携を実装
  */
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { 
   Terminal, 
@@ -23,7 +24,8 @@ import {
   Bot,
   ChevronDown,
   Search,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from "lucide-react"
 
 import { MainLayout } from "@/components/layout/main-layout"
@@ -68,170 +70,96 @@ import { CommandWizard } from "@/components/command/command-wizard"
 import { TemplateSelector } from "@/components/command/template/template-selector"
 import { CommandTemplate } from "@/types/template"
 import { ApiConfig } from "@/types/api-config"
-import { Command, CreateCommandRequest } from "@/types/command"
-
-// Mock data for UI demonstration
-const mockBots = [
-  { id: "1", name: "Moderation Bot" },
-  { id: "2", name: "Music Bot" },
-  { id: "3", name: "Utility Bot" },
-  { id: "4", name: "AI Assistant Bot" }
-]
-
-const mockCommands: Command[] = [
-  {
-    id: "1",
-    botId: "1",
-    name: "ban",
-    description: "ユーザーをBANします",
-    usage: "/ban @user [reason]",
-    options: [
-      { name: "user", description: "BANするユーザー", type: "user", required: true },
-      { name: "reason", description: "BAN理由", type: "string", required: false }
-    ],
-    promptId: "1",
-    enabled: true,
-    outputDestination: { type: "global" }, // グローバル（制限なし）
-    createdAt: "2025-03-10T10:00:00Z",
-    updatedAt: "2025-03-10T10:00:00Z"
-  },
-  {
-    id: "2",
-    botId: "1",
-    name: "kick",
-    description: "ユーザーをキックします",
-    usage: "/kick @user [reason]",
-    options: [
-      { name: "user", description: "キックするユーザー", type: "user", required: true },
-      { name: "reason", description: "キック理由", type: "string", required: false }
-    ],
-    promptId: null,
-    enabled: true,
-    outputDestination: { 
-      type: "servers", 
-      allowedServers: ["123456789012345678", "234567890123456789"] 
-    }, // 特定のサーバーにのみ出力
-    createdAt: "2025-03-10T10:00:00Z",
-    updatedAt: "2025-03-10T10:00:00Z"
-  },
-  {
-    id: "3",
-    botId: "2",
-    name: "play",
-    description: "音楽を再生します",
-    usage: "/play [song]",
-    options: [
-      { name: "song", description: "曲名またはURL", type: "string", required: true }
-    ],
-    promptId: null,
-    enabled: true,
-    outputDestination: { 
-      type: "channel", 
-      channelIds: ["345678901234567890", "456789012345678901"] 
-    }, // 特定のチャンネルにのみ出力
-    createdAt: "2025-03-10T10:00:00Z",
-    updatedAt: "2025-03-10T10:00:00Z"
-  },
-  {
-    id: "4",
-    botId: "3",
-    name: "poll",
-    description: "投票を作成します",
-    usage: "/poll [question] [options]",
-    options: [
-      { name: "question", description: "質問", type: "string", required: true },
-      { name: "options", description: "選択肢（カンマ区切り）", type: "string", required: true }
-    ],
-    promptId: "2",
-    enabled: true,
-    outputDestination: { 
-      type: "threads", 
-      allowedThreads: ["567890123456789012"] 
-    }, // 特定のスレッドにのみ出力
-    createdAt: "2025-03-10T10:00:00Z",
-    updatedAt: "2025-03-10T10:00:00Z"
-  },
-  {
-    id: "5",
-    botId: "4",
-    name: "ask",
-    description: "AIに質問します",
-    usage: "/ask [question]",
-    options: [
-      { name: "question", description: "質問内容", type: "string", required: true }
-    ],
-    promptId: "3",
-    enabled: true,
-    outputDestination: { type: "global" }, // グローバル（制限なし）
-    createdAt: "2025-03-10T10:00:00Z",
-    updatedAt: "2025-03-10T10:00:00Z"
-  }
-]
-
-const mockPrompts = [
-  {
-    id: "1",
-    commandId: "1",
-    content: "ユーザー {user} を {reason} の理由でBANしました。",
-    variables: ["user", "reason"],
-    apiIntegration: null
-  },
-  {
-    id: "2",
-    commandId: "4",
-    content: "投票: {question}\n\n選択肢:\n{options}",
-    variables: ["question", "options"],
-    apiIntegration: null
-  },
-  {
-    id: "3",
-    commandId: "5",
-    content: "質問: {question}\n\n回答を生成中...",
-    variables: ["question"],
-    apiIntegration: "openai"
-  }
-]
+import { Command, CommandOption, CommandOptionType } from "@/types/command"
+import { useSupabaseMcp } from "@/hooks/useSupabaseMcp"
+import { useCommandsMcp, CommandWithPrompt, CreateCommandRequest, UpdateCommandRequest, PromptInfo } from "@/hooks/useCommandsMcp"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function CommandsPage() {
   const [selectedBotId, setSelectedBotId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [selectedCommand, setSelectedCommand] = useState<Command | null>(null)
   const [creationStep, setCreationStep] = useState<"template" | "wizard">("template")
   const [selectedTemplate, setSelectedTemplate] = useState<CommandTemplate | null>(null)
+  const [bots, setBots] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   
-  // Filter commands based on selected bot and search query
-  const filteredCommands = mockCommands.filter(command => {
-    // ボットが選択されていない場合は何も表示しない
-    if (!selectedBotId) {
-      return false;
+  const { getBots } = useSupabaseMcp()
+  const { 
+    commands, 
+    loading: commandsLoading, 
+    error: commandsError,
+    selectedCommand,
+    setSelectedCommand,
+    fetchCommands,
+    addCommand,
+    editCommand,
+    removeCommand
+  } = useCommandsMcp()
+  
+  const { toast } = useToast()
+  
+  // ボットデータの取得
+  useEffect(() => {
+    const loadBots = async () => {
+      setIsLoading(true)
+      try {
+        const botsData = await getBots()
+        if (botsData) {
+          setBots(botsData)
+        }
+      } catch (error) {
+        console.error("Error loading bots:", error)
+        toast({
+          title: "エラー",
+          description: "ボットデータの取得に失敗しました。",
+          type: "error"
+        })
+      } finally {
+        setIsLoading(false)
+      }
     }
     
-    // 選択されたボットのコマンドのみ表示
-    const matchesBot = command.botId === selectedBotId;
-    
+    loadBots()
+  }, [getBots, toast])
+  
+  // ボットが選択された時にコマンドを取得
+  useEffect(() => {
+    if (selectedBotId) {
+      const loadCommands = async () => {
+        try {
+          await fetchCommands(parseInt(selectedBotId))
+        } catch (error) {
+          console.error("Error loading commands:", error)
+          toast({
+            title: "エラー",
+            description: "コマンドデータの取得に失敗しました。",
+            type: "error"
+          })
+        }
+      }
+      
+      loadCommands()
+    }
+  }, [selectedBotId, fetchCommands, toast])
+  
+  // Filter commands based on search query
+  const filteredCommands = commands.filter(command => {
     // 検索クエリがある場合はフィルタリング
-    const matchesSearch = searchQuery === "" || 
-                          command.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          command.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesBot && matchesSearch;
+    return searchQuery === "" || 
+           command.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           command.description.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   // Get bot name by ID
   const getBotName = (botId: string) => {
-    const bot = mockBots.find(b => b.id === botId)
+    const bot = bots.find(b => b.id.toString() === botId)
     return bot ? bot.name : "Unknown Bot"
   }
 
-  // Get prompt by command ID
-  const getPrompt = (commandId: string) => {
-    return mockPrompts.find(p => p.commandId === commandId)
-  }
-
   // コマンドの編集を開始
-  const handleEditCommand = (command: Command) => {
+  const handleEditCommand = (command: CommandWithPrompt) => {
     setSelectedCommand(command)
     setIsEditDialogOpen(true)
   }
@@ -250,19 +178,112 @@ export default function CommandsPage() {
   }
 
   // 新しいコマンドを保存
-  const handleSaveNewCommand = (command: Partial<Command>) => {
-    console.log("新しいコマンドを作成:", command)
-    // ここで実際のコマンド作成処理を行う
-    setIsCreateDialogOpen(false)
-    setCreationStep("template")
-    setSelectedTemplate(null)
+  const handleSaveNewCommand = async (command: Partial<Command> | CreateCommandRequest | UpdateCommandRequest) => {
+    try {
+      // コマンドオブジェクトをCreateCommandRequest型に変換
+      const createRequest: CreateCommandRequest = {
+        botId: selectedBotId || "",
+        name: command.name || "",
+        description: command.description || "",
+        options: command.options || [],
+        prompt: 'prompt' in command && command.prompt ? {
+          content: command.prompt.content,
+          variables: command.prompt.variables,
+          apiIntegration: command.prompt.apiIntegration,
+          apiSettings: 'apiSettings' in command.prompt ? command.prompt.apiSettings : null
+        } : undefined,
+        apiFlow: command.apiFlow,
+        enabled: command.enabled,
+        outputDestination: command.outputDestination
+      };
+      
+      const result = await addCommand(createRequest);
+      
+      if (result) {
+        setIsCreateDialogOpen(false)
+        setCreationStep("template")
+        setSelectedTemplate(null)
+        
+        toast({
+          title: "成功",
+          description: "新しいコマンドを作成しました。",
+          type: "success"
+        })
+      }
+    } catch (error) {
+      console.error("Error saving new command:", error)
+      toast({
+        title: "エラー",
+        description: "コマンドの作成に失敗しました。",
+        type: "error"
+      })
+    }
   }
 
   // 既存のコマンドを更新
-  const handleUpdateCommand = (command: Partial<Command>) => {
-    console.log("コマンドを更新:", command)
-    // ここで実際のコマンド更新処理を行う
-    setIsEditDialogOpen(false)
+  const handleUpdateCommand = async (command: Partial<Command> | CreateCommandRequest | UpdateCommandRequest) => {
+    try {
+      if (!selectedCommand) return;
+      
+      // コマンドオブジェクトをUpdateCommandRequest型に変換
+      const updateRequest: UpdateCommandRequest = {
+        id: selectedCommand.id,
+        botId: command.botId,
+        name: command.name,
+        description: command.description,
+        options: command.options,
+        prompt: 'prompt' in command && command.prompt ? {
+          content: command.prompt.content,
+          variables: command.prompt.variables,
+          apiIntegration: command.prompt.apiIntegration,
+          apiSettings: 'apiSettings' in command.prompt ? command.prompt.apiSettings : null
+        } : undefined,
+        apiFlow: command.apiFlow,
+        enabled: command.enabled,
+        outputDestination: command.outputDestination
+      };
+      
+      const result = await editCommand(updateRequest);
+      
+      if (result) {
+        setIsEditDialogOpen(false)
+        
+        toast({
+          title: "成功",
+          description: "コマンドを更新しました。",
+          type: "success"
+        })
+      }
+    } catch (error) {
+      console.error("Error updating command:", error)
+      toast({
+        title: "エラー",
+        description: "コマンドの更新に失敗しました。",
+        type: "error"
+      })
+    }
+  }
+  
+  // コマンドを削除
+  const handleDeleteCommand = async (id: string) => {
+    try {
+      const result = await removeCommand(parseInt(id))
+      
+      if (result) {
+        toast({
+          title: "成功",
+          description: "コマンドを削除しました。",
+          type: "success"
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting command:", error)
+      toast({
+        title: "エラー",
+        description: "コマンドの削除に失敗しました。",
+        type: "error"
+      })
+    }
   }
 
   // テンプレートからコマンド初期値を作成
@@ -284,15 +305,25 @@ export default function CommandsPage() {
     // テンプレートにAPI連携フローの設定があれば使用
     const apiFlow = selectedTemplate.defaultCommand.apiFlow;
 
+    // テンプレートのオプションをCommandOption型に変換
+    const options: CommandOption[] = selectedTemplate.defaultCommand.options.map(opt => ({
+      id: opt.id || Math.random().toString(36).substring(2, 9),
+      name: opt.name,
+      description: opt.description,
+      type: opt.type as CommandOptionType, // 型をCommandOptionTypeに変換
+      required: opt.required,
+      choices: opt.choices,
+      subOptions: opt.subOptions as CommandOption[] // 型をCommandOption[]に変換
+    }));
+
     return {
       botId: selectedBotId,
       name: selectedTemplate.defaultCommand.name,
       description: selectedTemplate.defaultCommand.description,
-      options: selectedTemplate.defaultCommand.options,
+      options,
       usage: `/${selectedTemplate.defaultCommand.name} ${selectedTemplate.defaultCommand.options
         .map(opt => opt.required ? `<${opt.name}>` : `[${opt.name}]`)
         .join(" ")}`,
-      promptId: null,
       enabled: true,
       outputDestination, // テンプレートからのアウトプット先設定
       apiFlow // テンプレートからのAPI連携フロー設定
@@ -320,6 +351,19 @@ export default function CommandsPage() {
     return selectedTemplate.defaultCommand.promptTemplate;
   };
 
+  // ローディング表示
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">データを読み込み中...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -354,7 +398,7 @@ export default function CommandsPage() {
                     </DialogHeader>
                     
                     <CommandWizard
-                      bots={mockBots}
+                      bots={bots}
                       initialCommand={createInitialCommandFromTemplate()}
                       initialApiConfig={createApiConfigFromTemplate()}
                       initialPromptContent={getPromptTemplateFromTemplate()}
@@ -392,8 +436,8 @@ export default function CommandsPage() {
               {/* コマンドウィザードコンポーネントを使用 */}
               {selectedCommand && (
                 <CommandWizard
-                  bots={mockBots}
-                  initialCommand={selectedCommand}
+                  bots={bots}
+                  initialCommand={selectedCommand as unknown as Partial<Command>}
                   onSave={handleUpdateCommand}
                   onCancel={() => setIsEditDialogOpen(false)}
                 />
@@ -405,11 +449,11 @@ export default function CommandsPage() {
         {/* ボット選択セクション */}
         {!selectedBotId ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {mockBots.map(bot => (
+            {bots.map(bot => (
               <Card 
                 key={bot.id}
                 className="cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/5"
-                onClick={() => setSelectedBotId(bot.id)}
+                onClick={() => setSelectedBotId(bot.id.toString())}
               >
                 <CardContent className="p-4 flex items-center space-x-3">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -418,7 +462,7 @@ export default function CommandsPage() {
                   <div>
                     <h3 className="font-medium">{bot.name}</h3>
                     <p className="text-xs text-muted-foreground">
-                      {mockCommands.filter(cmd => cmd.botId === bot.id).length} コマンド
+                      {commands.filter(cmd => cmd.botId === bot.id.toString()).length} コマンド
                     </p>
                   </div>
                 </CardContent>
@@ -477,124 +521,133 @@ export default function CommandsPage() {
             </div>
             
             {/* コマンドリスト */}
-            <motion.div 
-              className="space-y-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              {filteredCommands.length > 0 ? (
-                filteredCommands.map((command, index) => (
-                  <motion.div
-                    key={command.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
-                  >
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <Terminal className="h-5 w-5 text-primary" />
-                              <CardTitle className="text-lg">/{command.name}</CardTitle>
-                              {command.promptId && (
-                                <Badge variant="outline" className="ml-2">
-                                  プロンプト
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>コマンド操作</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleEditCommand(command)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                <span>編集</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Copy className="mr-2 h-4 w-4" />
-                                <span>複製</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-500">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                <span>削除</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm mb-4">{command.description}</p>
-                        <Accordion type="single" collapsible className="w-full">
-                          <AccordionItem value="details">
-                            <AccordionTrigger className="text-sm">詳細を表示</AccordionTrigger>
-                            <AccordionContent>
-                              <div className="space-y-4 pt-2">
-                                <div>
-                                  <h4 className="text-sm font-medium mb-1">使用方法</h4>
-                                  <p className="text-sm font-mono bg-muted p-2 rounded">{command.usage}</p>
-                                </div>
-                                
-                                {command.options.length > 0 && (
-                                  <div>
-                                    <h4 className="text-sm font-medium mb-1">オプション</h4>
-                                    <div className="space-y-2">
-                                      {command.options.map((option, i) => (
-                                        <div key={i} className="flex justify-between text-sm border-b pb-2 last:border-0">
-                                          <div>
-                                            <span className="font-medium">{option.name}</span>
-                                            <span className="text-xs ml-2 text-muted-foreground">
-                                              ({option.type}{option.required ? ', 必須' : ''})
-                                            </span>
-                                          </div>
-                                          <div className="text-muted-foreground">{option.description}</div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {command.promptId && (
-                                  <div>
-                                    <h4 className="text-sm font-medium mb-1">プロンプト</h4>
-                                    <div className="bg-muted p-2 rounded">
-                                      <p className="text-sm font-mono whitespace-pre-wrap">
-                                        {getPrompt(command.id)?.content}
-                                      </p>
-                                      {getPrompt(command.id)?.apiIntegration && (
-                                        <Badge className="mt-2">
-                                          {getPrompt(command.id)?.apiIntegration} 連携
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
+            {commandsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <motion.div 
+                className="space-y-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                {filteredCommands.length > 0 ? (
+                  filteredCommands.map((command, index) => (
+                    <motion.div
+                      key={command.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.05 }}
+                    >
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <Terminal className="h-5 w-5 text-primary" />
+                                <CardTitle className="text-lg">/{command.name}</CardTitle>
+                                {command.prompt && (
+                                  <Badge variant="outline" className="ml-2">
+                                    プロンプト
+                                  </Badge>
                                 )}
                               </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <Terminal className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">コマンドが見つかりません</h3>
-                  <p className="text-muted-foreground mt-1">
-                    検索条件に一致するコマンドがありません。
-                  </p>
-                </div>
-              )}
-            </motion.div>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>コマンド操作</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleEditCommand(command)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  <span>編集</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  <span>複製</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  className="text-red-500"
+                                  onClick={() => handleDeleteCommand(command.id)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  <span>削除</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm mb-4">{command.description}</p>
+                          <Accordion type="single" collapsible className="w-full">
+                            <AccordionItem value="details">
+                              <AccordionTrigger className="text-sm">詳細を表示</AccordionTrigger>
+                              <AccordionContent>
+                                <div className="space-y-4 pt-2">
+                                  <div>
+                                    <h4 className="text-sm font-medium mb-1">使用方法</h4>
+                                    <p className="text-sm font-mono bg-muted p-2 rounded">{command.usage}</p>
+                                  </div>
+                                  
+                                  {command.options.length > 0 && (
+                                    <div>
+                                      <h4 className="text-sm font-medium mb-1">オプション</h4>
+                                      <div className="space-y-2">
+                                        {command.options.map((option, i) => (
+                                          <div key={i} className="flex justify-between text-sm border-b pb-2 last:border-0">
+                                            <div>
+                                              <span className="font-medium">{option.name}</span>
+                                              <span className="text-xs ml-2 text-muted-foreground">
+                                                ({option.type}{option.required ? ', 必須' : ''})
+                                              </span>
+                                            </div>
+                                            <div className="text-muted-foreground">{option.description}</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {command.prompt && (
+                                    <div>
+                                      <h4 className="text-sm font-medium mb-1">プロンプト</h4>
+                                      <div className="bg-muted p-2 rounded">
+                                        <p className="text-sm font-mono whitespace-pre-wrap">
+                                          {command.prompt.content}
+                                        </p>
+                                        {command.prompt.apiIntegration && (
+                                          <Badge className="mt-2">
+                                            {command.prompt.apiIntegration} 連携
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Terminal className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">コマンドが見つかりません</h3>
+                    <p className="text-muted-foreground mt-1">
+                      検索条件に一致するコマンドがありません。
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            )}
           </div>
         )}
       </div>

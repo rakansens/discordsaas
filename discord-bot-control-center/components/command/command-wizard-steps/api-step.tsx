@@ -10,12 +10,14 @@ import { StepProps } from "../command-wizard-types"
 import { ApiIntegrationPanel } from "../api-integration-panel"
 
 export function ApiStep({
+  command,
   apiConfig,
   updateApiConfig
 }: StepProps) {
   return (
     <ApiIntegrationPanel
       apiConfig={apiConfig || { service: "none", settings: {} }}
+      command={command}
       onChange={updateApiConfig}
     />
   );

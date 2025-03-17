@@ -164,6 +164,13 @@ export function CommandWizard({
     }
   };
 
+  // テンプレートからコマンドが作成された場合、APIフローが設定されていれば自動的にAPIフローステップに進む
+  useEffect(() => {
+    if (initialCommand?.apiFlow && initialCommand.apiFlow.length > 0 && currentStep === "api") {
+      setCurrentStep("api-flow");
+    }
+  }, [initialCommand, currentStep]);
+
   // 前のステップに戻る
   const goToPreviousStep = () => {
     switch (currentStep) {

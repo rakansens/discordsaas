@@ -1,12 +1,15 @@
 /**
  * API utility functions
  * Created: 2025/3/13
+ * Updated: 2025/3/16 - テンプレート関連の関数を追加
  * 
  * This module provides functions for interacting with the API endpoints.
  */
 
 import { Bot, BotStatus, BotWithoutToken, CreateBotRequest, UpdateBotRequest } from "@/types/bot";
-import { Command, CommandWithPrompt, CreateCommandRequest, UpdateCommandRequest } from "@/types/command";
+import { Command, CommandPrompt } from "@/types/command";
+import { CommandTemplate, TemplateCategory } from "@/types/template";
+import { TemplateWithId, CreateTemplateRequest, UpdateTemplateRequest } from "@/hooks/useTemplatesMcp";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
@@ -116,29 +119,29 @@ export async function getBotStatus(
 /**
  * Get all commands
  */
-export async function getAllCommands(): Promise<CommandWithPrompt[]> {
-  return apiRequest<CommandWithPrompt[]>("/api/commands");
+export async function getAllCommands(): Promise<Command[]> {
+  return apiRequest<Command[]>("/api/commands");
 }
 
 /**
  * Get commands for a specific bot
  */
-export async function getCommandsByBotId(botId: string): Promise<CommandWithPrompt[]> {
-  return apiRequest<CommandWithPrompt[]>(`/api/commands?botId=${botId}`);
+export async function getCommandsByBotId(botId: string): Promise<Command[]> {
+  return apiRequest<Command[]>(`/api/commands?botId=${botId}`);
 }
 
 /**
  * Get a command by ID
  */
-export async function getCommandById(id: string): Promise<CommandWithPrompt> {
-  return apiRequest<CommandWithPrompt>(`/api/commands?id=${id}`);
+export async function getCommandById(id: string): Promise<Command> {
+  return apiRequest<Command>(`/api/commands?id=${id}`);
 }
 
 /**
  * Create a new command
  */
-export async function createCommand(command: CreateCommandRequest): Promise<CommandWithPrompt> {
-  return apiRequest<CommandWithPrompt>("/api/commands", {
+export async function createCommand(command: any): Promise<Command> {
+  return apiRequest<Command>("/api/commands", {
     method: "POST",
     body: JSON.stringify(command),
   });
@@ -147,8 +150,8 @@ export async function createCommand(command: CreateCommandRequest): Promise<Comm
 /**
  * Update a command
  */
-export async function updateCommand(command: UpdateCommandRequest): Promise<CommandWithPrompt> {
-  return apiRequest<CommandWithPrompt>("/api/commands", {
+export async function updateCommand(command: any): Promise<Command> {
+  return apiRequest<Command>("/api/commands", {
     method: "PUT",
     body: JSON.stringify(command),
   });
@@ -159,6 +162,58 @@ export async function updateCommand(command: UpdateCommandRequest): Promise<Comm
  */
 export async function deleteCommand(id: string): Promise<{ success: boolean }> {
   return apiRequest<{ success: boolean }>(`/api/commands?id=${id}`, {
+    method: "DELETE",
+  });
+}
+
+// Template API functions
+
+/**
+ * Get all templates
+ */
+export async function getAllTemplates(): Promise<TemplateWithId[]> {
+  return apiRequest<TemplateWithId[]>("/api/templates");
+}
+
+/**
+ * Get templates by category
+ */
+export async function getTemplatesByCategory(category: TemplateCategory): Promise<TemplateWithId[]> {
+  return apiRequest<TemplateWithId[]>(`/api/templates?category=${category}`);
+}
+
+/**
+ * Get a template by ID
+ */
+export async function getTemplateById(id: string): Promise<TemplateWithId> {
+  return apiRequest<TemplateWithId>(`/api/templates/${id}`);
+}
+
+/**
+ * Create a new template
+ */
+export async function createTemplate(template: CreateTemplateRequest): Promise<TemplateWithId> {
+  return apiRequest<TemplateWithId>("/api/templates", {
+    method: "POST",
+    body: JSON.stringify(template),
+  });
+}
+
+/**
+ * Update a template
+ */
+export async function updateTemplate(template: UpdateTemplateRequest): Promise<TemplateWithId> {
+  return apiRequest<TemplateWithId>(`/api/templates/${template.id}`, {
+    method: "PUT",
+    body: JSON.stringify(template),
+  });
+}
+
+/**
+ * Delete a template
+ */
+export async function deleteTemplate(id: string): Promise<{ success: boolean }> {
+  return apiRequest<{ success: boolean }>(`/api/templates/${id}`, {
     method: "DELETE",
   });
 }

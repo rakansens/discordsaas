@@ -18,6 +18,7 @@ export type TemplateCategory =
   | "conversation" // 対話・質問応答
   | "media" // メディア処理
   | "utility" // ユーティリティ
+  | "community" // コミュニティ管理
   | "api-flow"; // 複数API連携フロー
 
 // テンプレートの難易度
@@ -39,7 +40,14 @@ export type TemplateTag =
   | "translation"
   | "business"
   | "generation"
-  | "media";
+  | "media"
+  | "community"
+  | "role-management"
+  | "knowledge-base"
+  | "note-taking"
+  | "schedule"
+  | "news"
+  | "trend-analysis";
 
 // テンプレート用コマンドオプション（idは自動生成されるため省略可能）
 export interface TemplateCommandOption {
@@ -71,8 +79,8 @@ export interface CommandTemplate {
     promptTemplate?: string;
     apiFlow?: ApiFlowStep[]; // 複数API連携フロー
     outputDestination?: CommandOutputDestination; // アウトプット先設定
+    requiredPermissions?: string[]; // 必要な権限
   };
-  requiredPermissions?: string[];
 }
 
 // テンプレートカテゴリ情報

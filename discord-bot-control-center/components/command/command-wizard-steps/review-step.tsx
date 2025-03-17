@@ -53,7 +53,19 @@ export function ReviewStep({
           <CardTitle className="text-lg">API連携</CardTitle>
         </CardHeader>
         <CardContent>
-          {apiConfig && apiConfig.service !== "none" ? (
+          {command.apiFlow && command.apiFlow.length > 0 ? (
+            <div>
+              <p className="font-medium mb-2">複数API連携フロー:</p>
+              <ul className="space-y-2">
+                {command.apiFlow.map((step, index) => (
+                  <li key={index} className="flex items-center">
+                    <Badge className="mr-2">{index + 1}</Badge>
+                    <span>{step.name} ({step.service})</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : apiConfig && apiConfig.service !== "none" ? (
             <div>
               <p>
                 <span className="font-medium">サービス:</span> {apiConfig.service}
@@ -79,9 +91,15 @@ export function ReviewStep({
                   ? "グローバル（制限なし）" 
                   : command.outputDestination.type === "servers" 
                     ? "特定のサーバーのみ" 
-                    : command.outputDestination.type === "channels" 
+                    : command.outputDestination.type === "channel" 
                       ? "特定のチャンネルのみ" 
-                      : "特定のスレッドのみ"}
+                      : command.outputDestination.type === "threads"
+                        ? "特定のスレッドのみ"
+                        : command.outputDestination.type === "thread"
+                          ? "スレッドのみ"
+                          : command.outputDestination.type === "dm"
+                            ? "DMのみ"
+                            : "一時メッセージ（本人のみ表示）"}
               </p>
               
               {command.outputDestination.type === "servers" && command.outputDestination.allowedServers && (
@@ -97,11 +115,11 @@ export function ReviewStep({
                 </div>
               )}
               
-              {command.outputDestination.type === "channels" && command.outputDestination.allowedChannels && (
+              {command.outputDestination.type === "channel" && command.outputDestination.channelIds && (
                 <div className="mt-2">
                   <p className="font-medium">指定されたチャンネル:</p>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {command.outputDestination.allowedChannels.map((channelId, index) => (
+                    {command.outputDestination.channelIds.map((channelId, index) => (
                       <Badge key={index} variant="secondary">
                         {channelId}
                       </Badge>

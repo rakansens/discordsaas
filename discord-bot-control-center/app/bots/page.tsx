@@ -1,12 +1,14 @@
 /**
  * Bot management page for Discord Bot Control Center
  * Created: 2025/3/13
+ * Updated: 2025/3/16 - Supabase連携実装
  */
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
+import { useSession } from "next-auth/react"
 import { 
   Bot, 
   Plus, 
@@ -19,7 +21,8 @@ import {
   Terminal,
   CheckCircle2,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react"
 
 import { MainLayout } from "@/components/layout/main-layout"
@@ -45,54 +48,210 @@ import {
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/components/ui/use-toast"
+import { useSupabaseMcp } from "@/hooks/useSupabaseMcp"
 
-// Mock data for UI demonstration
-const mockBots = [
-  {
-    id: "1",
-    name: "Moderation Bot",
-    clientId: "123456789012345678",
-    status: "online",
-    avatar: "/placeholder-bot-1.svg",
-    servers: 8,
-    commands: 12,
-    lastActive: "2025-03-13T01:23:45Z"
-  },
-  {
-    id: "2",
-    name: "Music Bot",
-    clientId: "234567890123456789",
-    status: "online",
-    avatar: "/placeholder-bot-2.svg",
-    servers: 5,
-    commands: 8,
-    lastActive: "2025-03-13T02:34:56Z"
-  },
-  {
-    id: "3",
-    name: "Utility Bot",
-    clientId: "345678901234567890",
-    status: "offline",
-    avatar: "/placeholder-bot-3.svg",
-    servers: 3,
-    commands: 15,
-    lastActive: "2025-03-12T12:45:12Z"
-  },
-  {
-    id: "4",
-    name: "AI Assistant Bot",
-    clientId: "456789012345678901",
-    status: "error",
-    avatar: "/placeholder-bot-4.svg",
-    servers: 2,
-    commands: 5,
-    lastActive: "2025-03-12T18:12:33Z"
-  }
-]
+// コマンドフックのモック（実際の実装は別途行う）
+const useCommands = () => {
+  const [loading, setLoading] = useState(false);
+  const [commands, setCommands] = useState([]);
+  
+  return {
+    loading,
+    commands,
+    fetchCommands: () => {},
+    createCommand: () => {},
+    updateCommand: () => {},
+    deleteCommand: () => {}
+  };
+};
+
+// ボットの型定義
+interface BotData {
+  id: number;
+  name: string;
+  client_id: string;
+  status: string;
+  avatar_url?: string;
+  settings: Record<string, any>;
+  last_active?: string;
+  created_at: string;
+  updated_at: string;
+  // UI表示用の追加フィールド
+  servers?: number;
+  commands?: number;
+}
 
 export default function BotsPage() {
+  const { data: session } = useSession()
+  const { toast } = useToast()
+  const { loading: commandsLoading, commands } = useCommands()
+  const { 
+    getBots, 
+    getBot, 
+    addBot, 
+    editBot, 
+    removeBot,
+    loading,
+    error 
+  } = useSupabaseMcp()
+  
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [bots, setBots] = useState(mockBots)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [botToDelete, setBotToDelete] = useState<BotData | null>(null)
+  const [bots, setBots] = useState<BotData[]>([])
+  const [commandCounts, setCommandCounts] = useState<Record<number, number>>({})
+  const [newBotData, setNewBotData] = useState({
+    name: '',
+    clientId: '',
+    token: '',
+    avatarUrl: ''
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // ボット一覧の取得
+  useEffect(() => {
+    const fetchBotsData = async () => {
+      try {
+        console.log('Fetching bots data...');
+        const botsData = await getBots();
+        console.log('Bots data received:', botsData);
+        
+        if (botsData) {
+          // UI表示用のデータを追加
+          const enhancedBots = botsData.map(bot => ({
+            ...bot,
+            servers: bot.settings?.servers?.length || 0,
+            commands: commandCounts[bot.id] || 0
+          }));
+          
+          console.log('Enhanced bots:', enhancedBots);
+          setBots(enhancedBots);
+        } else {
+          console.log('No bots data received');
+          setBots([]);
+        }
+      } catch (err) {
+        console.error('Error fetching bots:', err);
+        setBots([]);
+      }
+    };
+    
+    fetchBotsData();
+  }, [getBots, commandCounts]);
+  
+  // ボットの作成
+  const handleCreateBot = async () => {
+    if (!session?.user?.id) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // トークンの暗号化はサーバーサイドで行う
+      const result = await addBot(
+        newBotData.name,
+        newBotData.clientId,
+        newBotData.token,
+        session.user.id,
+        newBotData.avatarUrl
+      );
+      
+      if (result) {
+        toast({
+          title: "ボットを作成しました",
+          description: `${newBotData.name}を作成しました。`,
+          type: "success"
+        });
+        
+        setIsCreateDialogOpen(false);
+        setNewBotData({
+          name: '',
+          clientId: '',
+          token: '',
+          avatarUrl: ''
+        });
+        
+        // ボット一覧を再取得
+        const botsData = await getBots();
+        if (botsData) {
+          setBots(botsData);
+        }
+      }
+    } catch (err) {
+      toast({
+        title: "エラー",
+        description: "ボットの作成に失敗しました。",
+        type: "error"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // ボットの削除
+  const handleDeleteBot = async () => {
+    if (!botToDelete) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const result = await removeBot(botToDelete.id);
+      
+      if (result) {
+        toast({
+          title: "ボットを削除しました",
+          description: `${botToDelete.name}を削除しました。`,
+          type: "success"
+        });
+        
+        setIsDeleteDialogOpen(false);
+        setBotToDelete(null);
+        
+        // ボット一覧を再取得
+        const botsData = await getBots();
+        if (botsData) {
+          setBots(botsData);
+        }
+      }
+    } catch (err) {
+      toast({
+        title: "エラー",
+        description: "ボットの削除に失敗しました。",
+        type: "error"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // ボットの起動/停止
+  const handleToggleBotStatus = async (bot: BotData) => {
+    const newStatus = bot.status === 'online' ? 'offline' : 'online';
+    
+    try {
+      const result = await editBot(bot.id, { status: newStatus });
+      
+      if (result) {
+        toast({
+          title: newStatus === 'online' ? "ボットを起動しました" : "ボットを停止しました",
+          description: `${bot.name}を${newStatus === 'online' ? '起動' : '停止'}しました。`,
+          type: "success"
+        });
+        
+        // ボット一覧を再取得
+        const botsData = await getBots();
+        if (botsData) {
+          setBots(botsData);
+        }
+      }
+    } catch (err) {
+      toast({
+        title: "エラー",
+        description: `ボットの${newStatus === 'online' ? '起動' : '停止'}に失敗しました。`,
+        type: "error"
+      });
+    }
+  };
   
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -142,29 +301,51 @@ export default function BotsPage() {
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="name">ボット名</Label>
-                  <Input id="name" placeholder="例: Moderation Bot" />
+                  <Input 
+                    id="name" 
+                    placeholder="例: Moderation Bot" 
+                    value={newBotData.name}
+                    onChange={(e) => setNewBotData({...newBotData, name: e.target.value})}
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="clientId">クライアントID</Label>
-                  <Input id="clientId" placeholder="例: 123456789012345678" />
+                  <Input 
+                    id="clientId" 
+                    placeholder="例: 123456789012345678" 
+                    value={newBotData.clientId}
+                    onChange={(e) => setNewBotData({...newBotData, clientId: e.target.value})}
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="token">ボットトークン</Label>
-                  <Input id="token" type="password" placeholder="例: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0.abcdef.ghijklmnopqrstuvwxyz" />
+                  <Input 
+                    id="token" 
+                    type="password" 
+                    placeholder="例: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0.abcdef.ghijklmnopqrstuvwxyz" 
+                    value={newBotData.token}
+                    onChange={(e) => setNewBotData({...newBotData, token: e.target.value})}
+                  />
                   <p className="text-xs text-muted-foreground">
                     トークンは暗号化されて保存され、他のユーザーには表示されません。
                   </p>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="avatar">アバター画像（オプション）</Label>
-                  <Input id="avatar" type="file" />
+                  <Label htmlFor="avatar">アバター画像URL（オプション）</Label>
+                  <Input 
+                    id="avatar" 
+                    placeholder="例: https://example.com/avatar.png" 
+                    value={newBotData.avatarUrl}
+                    onChange={(e) => setNewBotData({...newBotData, avatarUrl: e.target.value})}
+                  />
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isSubmitting}>
                   キャンセル
                 </Button>
-                <Button onClick={() => setIsCreateDialogOpen(false)}>
+                <Button onClick={handleCreateBot} disabled={isSubmitting || !newBotData.name || !newBotData.clientId || !newBotData.token}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   作成
                 </Button>
               </DialogFooter>
@@ -172,103 +353,171 @@ export default function BotsPage() {
           </Dialog>
         </div>
 
-        <motion.div 
-          className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          {bots.map((bot, index) => (
-            <motion.div
-              key={bot.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
-            >
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback>{bot.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <CardTitle className="text-lg">{bot.name}</CardTitle>
-                        <div className="flex items-center text-xs text-muted-foreground">
-                          {getStatusIcon(bot.status)}
-                          <span className="ml-1">{getStatusText(bot.status)}</span>
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : bots.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Bot className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">ボットがありません</h3>
+            <p className="text-muted-foreground mt-2 mb-4">
+              新しいボットを作成して、Discordサーバーに追加しましょう。
+            </p>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              新しいボットを作成
+            </Button>
+          </div>
+        ) : (
+          <motion.div 
+            className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {bots.map((bot, index) => (
+              <motion.div
+                key={bot.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+              >
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-10 w-10">
+                          {bot.avatar_url ? (
+                            <AvatarImage src={bot.avatar_url} alt={bot.name} />
+                          ) : null}
+                          <AvatarFallback>{bot.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <CardTitle className="text-lg">{bot.name}</CardTitle>
+                          <div className="flex items-center text-xs text-muted-foreground">
+                            {getStatusIcon(bot.status)}
+                            <span className="ml-1">{getStatusText(bot.status)}</span>
+                          </div>
                         </div>
                       </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>ボット操作</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem>
+                            <Edit className="mr-2 h-4 w-4" />
+                            <span>編集</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Terminal className="mr-2 h-4 w-4" />
+                            <span>コマンド設定</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            navigator.clipboard.writeText(bot.client_id);
+                            toast({
+                              title: "コピーしました",
+                              description: "クライアントIDをクリップボードにコピーしました。",
+                              type: "success"
+                            });
+                          }}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            <span>クライアントIDをコピー</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            className="text-red-500"
+                            onClick={() => {
+                              setBotToDelete(bot);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            <span>削除</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>ボット操作</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" />
-                          <span>編集</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Terminal className="mr-2 h-4 w-4" />
-                          <span>コマンド設定</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Copy className="mr-2 h-4 w-4" />
-                          <span>クライアントIDをコピー</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-500">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          <span>削除</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xs text-muted-foreground mb-4">
-                    ID: {bot.clientId}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">サーバー数</p>
-                      <p className="font-medium">{bot.servers}</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-xs text-muted-foreground mb-4">
+                      ID: {bot.client_id}
                     </div>
-                    <div>
-                      <p className="text-muted-foreground">コマンド数</p>
-                      <p className="font-medium">{bot.commands}</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">サーバー数</p>
+                        <p className="font-medium">{bot.servers || 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">コマンド数</p>
+                        <p className="font-medium">{bot.commands || 0}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-muted-foreground">最終アクティブ</p>
+                        <p className="font-medium">
+                          {bot.last_active 
+                            ? new Date(bot.last_active).toLocaleString('ja-JP')
+                            : '未アクティブ'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="col-span-2">
-                      <p className="text-muted-foreground">最終アクティブ</p>
-                      <p className="font-medium">
-                        {new Date(bot.lastActive).toLocaleString('ja-JP')}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  {bot.status === "online" ? (
-                    <Button variant="outline" className="w-full">
-                      <Square className="mr-2 h-4 w-4" />
-                      停止
-                    </Button>
-                  ) : (
-                    <Button className="w-full">
-                      <Play className="mr-2 h-4 w-4" />
-                      起動
-                    </Button>
-                  )}
-                </CardFooter>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
+                  </CardContent>
+                  <CardFooter className="flex justify-between">
+                    {bot.status === "online" ? (
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => handleToggleBotStatus(bot)}
+                      >
+                        <Square className="mr-2 h-4 w-4" />
+                        停止
+                      </Button>
+                    ) : (
+                      <Button 
+                        className="w-full"
+                        onClick={() => handleToggleBotStatus(bot)}
+                      >
+                        <Play className="mr-2 h-4 w-4" />
+                        起動
+                      </Button>
+                    )}
+                  </CardFooter>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
       </div>
+      
+      {/* 削除確認ダイアログ */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>ボットの削除</DialogTitle>
+            <DialogDescription>
+              {botToDelete?.name}を削除してもよろしいですか？この操作は元に戻せません。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isSubmitting}>
+              キャンセル
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteBot} 
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              削除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   )
 }
