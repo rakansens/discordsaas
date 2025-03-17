@@ -289,7 +289,7 @@ export default function BotsPage() {
     };
     
     fetchBotsData();
-  }, [getBots, commandCounts]);
+  }, [commandCounts]); // getBots を依存配列から削除
   
   // ボットの作成
   const handleCreateBot = async () => {
