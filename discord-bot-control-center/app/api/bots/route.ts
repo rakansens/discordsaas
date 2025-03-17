@@ -104,12 +104,16 @@ export async function GET(request: NextRequest) {
  * POST handler for creating a new bot
  */
 export async function POST(request: NextRequest) {
+  console.log('POST /api/bots が呼び出されました');
+  
   try {
     // Parse request body
     const body = await request.json();
+    console.log('リクエストボディ:', { ...body, token: '***' });
     
     // Validate required fields
     if (!body.name || !body.clientId || !body.token) {
+      console.log('必須フィールドが不足しています');
       return NextResponse.json(
         { error: "Missing required fields: name, clientId, token" },
         { status: 400 }
@@ -118,9 +122,11 @@ export async function POST(request: NextRequest) {
     
     // In a real implementation, this would check authentication
     // and set the userId from the authenticated user
-    const userId = "1"; // Mock user ID
+    const userId = body.userId || "1"; // Use provided userId or fallback to mock
+    console.log('使用するユーザーID:', userId);
     
     try {
+      console.log('Supabaseにボットを追加を試みます');
       // Supabaseにボットを追加
       const result = await use_mcp_tool({
         server_name: 'discord-bot-supabase-mcp',
@@ -140,17 +146,22 @@ export async function POST(request: NextRequest) {
         }
       });
       
+      console.log('Supabase結果:', result ? '成功' : '失敗');
+      
       if (result && result.rows && result.rows.length > 0) {
+        console.log('Supabaseにボットが追加されました');
         // Don't return the encrypted token in the response
         const { encrypted_token, ...botWithoutToken } = result.rows[0];
         return NextResponse.json(botWithoutToken, { status: 201 });
       }
     } catch (supabaseError) {
       console.error("Error creating bot in Supabase:", supabaseError);
+      console.log('Supabaseへの追加に失敗したため、モックデータに追加します');
       // Supabaseへの追加に失敗した場合はモックデータに追加
     }
     
     // Create a new bot in mock data as fallback
+    console.log('モックデータにボットを追加します');
     const newBot: Bot = {
       id: (mockBots.length + 1).toString(),
       userId,
@@ -172,6 +183,7 @@ export async function POST(request: NextRequest) {
     
     // Add to mock data
     mockBots.push(newBot);
+    console.log('モックデータにボットが追加されました:', { id: newBot.id, name: newBot.name });
     
     // Don't return the encrypted token in the response
     const { encryptedToken, ...botWithoutToken } = newBot;
@@ -179,8 +191,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(botWithoutToken, { status: 201 });
   } catch (error) {
     console.error("Error creating bot:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('エラーメッセージ:', errorMessage);
+    
     return NextResponse.json(
-      { error: "Failed to create bot" },
+      { error: `Failed to create bot: ${errorMessage}` },
       { status: 500 }
     );
   }
