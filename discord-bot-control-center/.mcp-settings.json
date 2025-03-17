@@ -5,10 +5,10 @@
       "args": [],
       "env": {
         "SUPABASE_PROJECT_REF": "cbgixcznbogkujzxkrto",
-        "SUPABASE_DB_PASSWORD": "Hiro091540@@",
-        "DATABASE_URL": "postgresql://postgres:Hiro091540%40%40@db.cbgixcznbogkujzxkrto.supabase.co:5432/postgres",
+        "SUPABASE_DB_PASSWORD": "${SUPABASE_DB_PASSWORD}",
+        "DATABASE_URL": "${DATABASE_URL}",
         "SUPABASE_URL": "https://cbgixcznbogkujzxkrto.supabase.co",
-        "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNiZ2l4Y3puYm9na3VqenhrcnRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDIwODg0MzMsImV4cCI6MjA1NzY2NDQzM30.sqCq3P2lnRKr5uQpXZvFnRLz7MN6noLO-uXFZzz5A7g",
+        "SUPABASE_KEY": "${SUPABASE_KEY}",
         "SUPABASE_REGION": "ap-northeast-1"
       }
     }
