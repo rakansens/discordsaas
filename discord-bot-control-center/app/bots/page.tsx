@@ -608,7 +608,7 @@ export default function BotsPage() {
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <p className="text-muted-foreground">サーバー数</p>
-                        <p className="font-medium">{bot.servers || 0}</p>
+                        <p className="font-medium">{Array.isArray(bot.servers) ? bot.servers.length : 0}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">コマンド数</p>
