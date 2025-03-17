@@ -132,10 +132,12 @@ const useBotsApi = () => {
   
   // ボットの追加
   const addBot = async (name: string, clientId: string, token: string, userId: string, avatarUrl?: string) => {
+    console.log('addBot関数が呼び出されました', { name, clientId, token: '***', userId, avatarUrl });
     setLoading(true);
     setError(null);
     
     try {
+      console.log('APIリクエストを送信します');
       const response = await fetch('/api/bots', {
         method: 'POST',
         headers: {
@@ -150,16 +152,23 @@ const useBotsApi = () => {
         }),
       });
       
+      console.log('APIレスポンス:', response.status, response.statusText);
+      
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('APIエラー:', response.status, errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
       }
       
       const data = await response.json();
+      console.log('APIレスポンスデータ:', data);
       setLoading(false);
       return data;
     } catch (err) {
       console.error('Error adding bot:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('エラーメッセージ:', errorMessage);
+      setError(errorMessage);
       setLoading(false);
       return null;
     }
@@ -234,7 +243,13 @@ const useBotsApi = () => {
 };
 
 export default function BotsPage() {
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
+  
+  // セッション情報のデバッグログ
+  useEffect(() => {
+    console.log('セッションステータス:', sessionStatus);
+    console.log('セッション情報:', session);
+  }, [session, sessionStatus]);
   const { toast } = useToast()
   const { loading: commandsLoading, commands } = useCommands()
   const { 
@@ -293,12 +308,21 @@ export default function BotsPage() {
   
   // ボットの作成
   const handleCreateBot = async () => {
-    if (!session?.user?.id) return;
+    console.log('handleCreateBot関数が呼び出されました');
+    console.log('session:', session);
     
+    if (!session?.user?.id) {
+      console.log('セッションのユーザーIDがありません');
+      return;
+    }
+    
+    console.log('ボット作成処理を開始します');
     setIsSubmitting(true);
     
     try {
+      console.log('ボットデータ:', newBotData);
       // トークンの暗号化はサーバーサイドで行う
+      console.log('addBot関数を呼び出します');
       const result = await addBot(
         newBotData.name,
         newBotData.clientId,
@@ -306,6 +330,7 @@ export default function BotsPage() {
         session.user.id,
         newBotData.avatarUrl
       );
+      console.log('addBot関数の結果:', result);
       
       if (result) {
         toast({
@@ -329,12 +354,17 @@ export default function BotsPage() {
         }
       }
     } catch (err) {
+      console.error('handleCreateBot関数でエラーが発生しました:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('エラーメッセージ:', errorMessage);
+      
       toast({
         title: "エラー",
-        description: "ボットの作成に失敗しました。",
+        description: `ボットの作成に失敗しました: ${errorMessage}`,
         type: "error"
       });
     } finally {
+      console.log('ボット作成処理が完了しました（成功または失敗）');
       setIsSubmitting(false);
     }
   };
@@ -451,6 +481,7 @@ export default function BotsPage() {
               </DialogHeader>
               <form onSubmit={(e) => {
                 e.preventDefault();
+                console.log('フォーム送信イベント発生');
                 handleCreateBot();
               }}>
                 <div className="grid gap-4 py-4">
@@ -500,7 +531,11 @@ export default function BotsPage() {
                   <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isSubmitting} type="button">
                     キャンセル
                   </Button>
-                  <Button type="submit" disabled={isSubmitting || !newBotData.name || !newBotData.clientId || !newBotData.token}>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || !newBotData.name || !newBotData.clientId || !newBotData.token}
+                    onClick={() => console.log('作成ボタンがクリックされました')}
+                  >
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     作成
                   </Button>
