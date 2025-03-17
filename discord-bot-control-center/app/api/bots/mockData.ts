@@ -14,7 +14,7 @@ export let mockBots: Bot[] = [
     userId: "1",
     name: "Discord Bot",
     clientId: "1350649877352157184",
-    encryptedToken: encrypt("MTM1MDY0OTg3NzM1MjE1NzE4NA.GOhGFf.Yk-CA6IFM60BWT7ggCMWLF-BY362ozRcdJurK4"),
+    encryptedToken: encrypt("mock-token-for-discord-bot"),
     avatarUrl: "/placeholder-bot-1.svg",
     status: "online",
     settings: {
