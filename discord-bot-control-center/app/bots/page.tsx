@@ -263,11 +263,19 @@ export default function BotsPage() {
   } = useBotsApi()
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [botToEdit, setBotToEdit] = useState<BotData | null>(null)
   const [botToDelete, setBotToDelete] = useState<BotData | null>(null)
   const [bots, setBots] = useState<BotData[]>([])
   const [commandCounts, setCommandCounts] = useState<Record<number, number>>({})
   const [newBotData, setNewBotData] = useState({
+    name: '',
+    clientId: '',
+    token: '',
+    avatarUrl: ''
+  })
+  const [editBotData, setEditBotData] = useState({
     name: '',
     clientId: '',
     token: '',
@@ -367,6 +375,54 @@ export default function BotsPage() {
       });
     } finally {
       console.log('ボット作成処理が完了しました（成功または失敗）');
+      setIsSubmitting(false);
+    }
+  };
+  
+  // ボットの編集
+  const handleEditBot = async () => {
+    if (!botToEdit) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // 更新するフィールドを準備
+      const updates: any = {
+        name: editBotData.name,
+        clientId: editBotData.clientId,
+        avatarUrl: editBotData.avatarUrl
+      };
+      
+      // トークンが入力されている場合のみ更新
+      if (editBotData.token) {
+        updates.token = editBotData.token;
+      }
+      
+      const result = await editBot(botToEdit.id, updates);
+      
+      if (result) {
+        toast({
+          title: "ボットを更新しました",
+          description: `${editBotData.name}を更新しました。`,
+          type: "success"
+        });
+        
+        setIsEditDialogOpen(false);
+        setBotToEdit(null);
+        
+        // ボット一覧を再取得
+        const botsData = await getBots();
+        if (botsData) {
+          setBots(botsData);
+        }
+      }
+    } catch (err) {
+      toast({
+        title: "エラー",
+        description: "ボットの更新に失敗しました。",
+        type: "error"
+      });
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -604,11 +660,23 @@ export default function BotsPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>ボット操作</DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            setBotToEdit(bot);
+                            setEditBotData({
+                              name: bot.name,
+                              clientId: bot.client_id,
+                              token: '', // トークンは表示しない
+                              avatarUrl: bot.avatar_url || ''
+                            });
+                            setIsEditDialogOpen(true);
+                          }}>
                             <Edit className="mr-2 h-4 w-4" />
                             <span>編集</span>
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            // コマンド設定ページに遷移
+                            window.location.href = `/commands?botId=${bot.id}`;
+                          }}>
                             <Terminal className="mr-2 h-4 w-4" />
                             <span>コマンド設定</span>
                           </DropdownMenuItem>
@@ -688,6 +756,78 @@ export default function BotsPage() {
         )}
       </div>
       
+      {/* 編集ダイアログ */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>ボットを編集</DialogTitle>
+            <DialogDescription>
+              {botToEdit?.name}の情報を編集します。
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleEditBot();
+          }}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">ボット名</Label>
+                <Input
+                  id="edit-name"
+                  placeholder="例: Moderation Bot"
+                  value={editBotData.name}
+                  onChange={(e) => setEditBotData({...editBotData, name: e.target.value})}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-clientId">クライアントID</Label>
+                <Input
+                  id="edit-clientId"
+                  placeholder="例: 123456789012345678"
+                  value={editBotData.clientId}
+                  onChange={(e) => setEditBotData({...editBotData, clientId: e.target.value})}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-token">ボットトークン（変更する場合のみ入力）</Label>
+                <Input
+                  id="edit-token"
+                  type="password"
+                  placeholder="新しいトークンを入力（変更しない場合は空欄）"
+                  value={editBotData.token}
+                  onChange={(e) => setEditBotData({...editBotData, token: e.target.value})}
+                  autoComplete="new-password"
+                />
+                <p className="text-xs text-muted-foreground">
+                  トークンは暗号化されて保存され、他のユーザーには表示されません。
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-avatar">アバター画像URL（オプション）</Label>
+                <Input
+                  id="edit-avatar"
+                  placeholder="例: https://example.com/avatar.png"
+                  value={editBotData.avatarUrl}
+                  onChange={(e) => setEditBotData({...editBotData, avatarUrl: e.target.value})}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isSubmitting} type="button">
+                キャンセル
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting || !editBotData.name || !editBotData.clientId}
+              >
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                保存
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* 削除確認ダイアログ */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">

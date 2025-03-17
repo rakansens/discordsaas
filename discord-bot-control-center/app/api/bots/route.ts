@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
         encrypted_token: body.token, // サーバーサイドで暗号化
         user_id: userId,
         avatar_url: body.avatarUrl || null,
-        status: "offline",
+        status: "offline" as "online" | "offline" | "error",
         settings: body.settings || {
           prefix: "!",
           autoRestart: true,

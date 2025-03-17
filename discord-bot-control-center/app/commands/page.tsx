@@ -71,7 +71,6 @@ import { TemplateSelector } from "@/components/command/template/template-selecto
 import { CommandTemplate } from "@/types/template"
 import { ApiConfig } from "@/types/api-config"
 import { Command, CommandOption, CommandOptionType } from "@/types/command"
-import { useSupabaseMcp } from "@/hooks/useSupabaseMcp"
 import { useCommandsMcp, CommandWithPrompt, CreateCommandRequest, UpdateCommandRequest, PromptInfo } from "@/hooks/useCommandsMcp"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -85,7 +84,21 @@ export default function CommandsPage() {
   const [bots, setBots] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   
-  const { getBots } = useSupabaseMcp()
+  // ボットデータを取得する関数
+  const fetchBots = async () => {
+    try {
+      const response = await fetch('/api/bots');
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      console.error('Error fetching bots:', err);
+      throw err;
+    }
+  };
   const { 
     commands, 
     loading: commandsLoading, 
@@ -105,7 +118,7 @@ export default function CommandsPage() {
     const loadBots = async () => {
       setIsLoading(true)
       try {
-        const botsData = await getBots()
+        const botsData = await fetchBots()
         if (botsData) {
           setBots(botsData)
         }
@@ -122,7 +135,7 @@ export default function CommandsPage() {
     }
     
     loadBots()
-  }, [getBots, toast])
+  }, [fetchBots, toast])
   
   // ボットが選択された時にコマンドを取得
   useEffect(() => {
