@@ -135,7 +135,7 @@ export default function CommandsPage() {
     }
     
     loadBots()
-  }, [fetchBots, toast])
+  }, [toast]) // fetchBotsを依存配列から削除して無限ループを防ぐ
   
   // ボットが選択された時にコマンドを取得
   useEffect(() => {
