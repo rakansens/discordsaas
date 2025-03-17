@@ -1,47 +1,14 @@
 /**
  * API route for bot management
  * Created: 2025/3/13
- * Updated: 2025/3/16 - Supabase連携実装
+ * Updated: 2025/3/17 - MCPを使わずに直接Supabaseクライアントを使用するように修正
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { encrypt, decrypt } from "@/lib/encryption";
+import { encrypt } from "@/lib/encryption";
 import { Bot, BotStatus, BotWithoutToken, CreateBotRequest, UpdateBotRequest } from "@/types/bot";
 import { mockBots } from "./mockData";
-import { use_mcp_tool } from "@/lib/mcp-helpers";
-
-// Supabase Bot型の定義
-interface SupabaseBot {
-  id: number;
-  user_id: string | null;
-  name: string;
-  client_id: string;
-  encrypted_token: string;
-  avatar_url: string | null;
-  status: string;
-  settings: Record<string, any>;
-  last_active: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-// Supabaseからボットを取得する関数
-async function fetchBotsFromSupabase(): Promise<SupabaseBot[] | null> {
-  try {
-    const result = await use_mcp_tool<{rows: SupabaseBot[]}>({
-      server_name: 'discord-bot-supabase-mcp',
-      tool_name: 'execute_sql_query',
-      arguments: {
-        query: 'SELECT * FROM public.bots ORDER BY created_at DESC;'
-      }
-    });
-    
-    return result.rows || [];
-  } catch (error) {
-    console.error('Error fetching bots from Supabase:', error);
-    return null;
-  }
-}
+import { botService } from "@/lib/supabase";
 
 /**
  * GET handler for retrieving bots
@@ -55,50 +22,78 @@ export async function GET(request: NextRequest) {
   console.log('GET /api/bots が呼び出されました', { id, useMock });
   
   try {
-    // Supabaseからボットを取得
-    const supabaseBots = await fetchBotsFromSupabase();
-    console.log('Supabaseからのボット取得結果:', supabaseBots ? `${supabaseBots.length}件取得` : '取得失敗');
-    
-    // 本番環境では常にSupabaseのデータを使用
-    // 開発環境でuseMockフラグが指定された場合のみモックデータを使用
-    const bots = supabaseBots || (useMock ? mockBots : []);
-    
-    // If ID is provided, return a specific bot
-    if (id) {
-      const bot = bots.find(bot => bot.id.toString() === id);
+    if (useMock) {
+      // モックモードの場合はモックデータを使用
+      console.log('モックモード: モックデータを使用します');
       
-      if (!bot) {
-        console.log(`ID ${id} のボットが見つかりません`);
-        return NextResponse.json(
-          { error: "Bot not found" },
-          { status: 404 }
-        );
-      }
-      
-      console.log(`ID ${id} のボットを返します`);
-      // Don't return the encrypted token in the response
-      if ('encrypted_token' in bot) {
-        const { encrypted_token, ...botWithoutToken } = bot as SupabaseBot;
-        return NextResponse.json(botWithoutToken);
-      } else {
-        const { encryptedToken, ...botWithoutToken } = bot as Bot;
+      if (id) {
+        const bot = mockBots.find(bot => bot.id === id);
+        
+        if (!bot) {
+          console.log(`ID ${id} のボットが見つかりません`);
+          return NextResponse.json(
+            { error: "Bot not found" },
+            { status: 404 }
+          );
+        }
+        
+        console.log(`ID ${id} のボットを返します`);
+        const { encryptedToken, ...botWithoutToken } = bot;
         return NextResponse.json(botWithoutToken);
       }
+      
+      // Otherwise, return all bots (without tokens)
+      console.log(`全ボット(${mockBots.length}件)を返します`);
+      const botsWithoutTokens = mockBots.map(bot => {
+        const { encryptedToken, ...botWithoutToken } = bot;
+        return botWithoutToken;
+      });
+      
+      return NextResponse.json(botsWithoutTokens);
     }
     
-    // Otherwise, return all bots (without tokens)
-    console.log(`全ボット(${bots.length}件)を返します`);
-    const botsWithoutTokens = bots.map(bot => {
-      if ('encrypted_token' in bot) {
-        const { encrypted_token, ...botWithoutToken } = bot as SupabaseBot;
-        return botWithoutToken;
-      } else {
-        const { encryptedToken, ...botWithoutToken } = bot as Bot;
-        return botWithoutToken;
+    // 本番モードの場合は直接Supabaseクライアントを使用
+    try {
+      console.log('Supabaseからボットを取得します');
+      
+      if (id) {
+        // 特定のボットを取得
+        const numericId = parseInt(id, 10);
+        if (isNaN(numericId)) {
+          return NextResponse.json(
+            { error: "Invalid ID format" },
+            { status: 400 }
+          );
+        }
+        
+        const bot = await botService.getBot(numericId);
+        console.log(`ID ${id} のボットを返します`);
+        
+        // Don't return the encrypted token in the response
+        const { encrypted_token, ...botWithoutToken } = bot;
+        return NextResponse.json(botWithoutToken);
       }
-    });
-    
-    return NextResponse.json(botsWithoutTokens);
+      
+      // 全ボットを取得
+      const bots = await botService.getBots();
+      console.log(`全ボット(${bots.length}件)を返します`);
+      
+      // Don't return the encrypted token in the response
+      const botsWithoutTokens = bots.map(bot => {
+        const { encrypted_token, ...botWithoutToken } = bot;
+        return botWithoutToken;
+      });
+      
+      return NextResponse.json(botsWithoutTokens);
+    } catch (supabaseError) {
+      console.error("Error fetching bots from Supabase:", supabaseError);
+      
+      // Supabaseからの取得に失敗した場合はエラーを返す
+      return NextResponse.json(
+        { error: "Failed to fetch bots from database" },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error("Error retrieving bots:", error);
     return NextResponse.json(
@@ -133,59 +128,12 @@ export async function POST(request: NextRequest) {
     const userId = body.userId || "1"; // Use provided userId or fallback to mock
     console.log('使用するユーザーID:', userId);
     
-    // モックモードかどうかを確認
     const useMock = request.nextUrl.searchParams.get("mock") === "true";
     
-    // 本番環境ではSupabaseにのみ保存
-    if (!useMock) {
-      try {
-        console.log('Supabaseにボットを追加を試みます');
-        // Supabaseにボットを追加
-        const result = await use_mcp_tool({
-          server_name: 'discord-bot-supabase-mcp',
-          tool_name: 'execute_sql_query',
-          arguments: {
-            query: `
-              BEGIN;
-              INSERT INTO public.bots (name, client_id, encrypted_token, user_id, avatar_url, status, settings)
-              VALUES ('${body.name}', '${body.clientId}', '${body.token}', ${userId ? `'${userId}'` : 'NULL'}, ${body.avatarUrl ? `'${body.avatarUrl}'` : 'NULL'}, 'offline', '${JSON.stringify(body.settings || {
-                prefix: "!",
-                autoRestart: true,
-                logLevel: "info",
-              })}')
-              RETURNING *;
-              COMMIT;
-            `
-          }
-        });
-        
-        console.log('Supabase結果:', result ? '成功' : '失敗');
-        
-        if (result && result.rows && result.rows.length > 0) {
-          console.log('Supabaseにボットが追加されました');
-          // Don't return the encrypted token in the response
-          const { encrypted_token, ...botWithoutToken } = result.rows[0];
-          return NextResponse.json(botWithoutToken, { status: 201 });
-        } else {
-          // Supabaseへの追加に失敗した場合はエラーを返す
-          console.error("Supabaseへのボット追加に失敗しました");
-          return NextResponse.json(
-            { error: "Failed to add bot to database" },
-            { status: 500 }
-          );
-        }
-      } catch (supabaseError) {
-        console.error("Error creating bot in Supabase:", supabaseError);
-        const errorMessage = supabaseError instanceof Error ? supabaseError.message : 'Unknown error';
-        return NextResponse.json(
-          { error: `Database error: ${errorMessage}` },
-          { status: 500 }
-        );
-      }
-    }
-    // 開発環境でモックモードが指定された場合のみモックデータに追加
-    else {
+    if (useMock) {
+      // モックモードの場合はモックデータに追加
       console.log('モックモード: モックデータにボットを追加します');
+      
       const newBot: Bot = {
         id: (mockBots.length + 1).toString(),
         userId,
@@ -213,6 +161,41 @@ export async function POST(request: NextRequest) {
       const { encryptedToken, ...botWithoutToken } = newBot;
       
       return NextResponse.json(botWithoutToken, { status: 201 });
+    }
+    
+    // 本番モードの場合は直接Supabaseクライアントを使用
+    try {
+      console.log('Supabaseにボットを追加します');
+      
+      const newBot = {
+        name: body.name,
+        client_id: body.clientId,
+        encrypted_token: body.token, // サーバーサイドで暗号化
+        user_id: userId,
+        avatar_url: body.avatarUrl || null,
+        status: "offline",
+        settings: body.settings || {
+          prefix: "!",
+          autoRestart: true,
+          logLevel: "info",
+        }
+      };
+      
+      const createdBot = await botService.createBot(newBot);
+      console.log('Supabaseにボットが追加されました:', { id: createdBot.id, name: createdBot.name });
+      
+      // Don't return the encrypted token in the response
+      const { encrypted_token, ...botWithoutToken } = createdBot;
+      
+      return NextResponse.json(botWithoutToken, { status: 201 });
+    } catch (supabaseError) {
+      console.error("Error creating bot in Supabase:", supabaseError);
+      
+      // Supabaseへの追加に失敗した場合はエラーを返す
+      return NextResponse.json(
+        { error: "Failed to create bot in database" },
+        { status: 500 }
+      );
     }
   } catch (error) {
     console.error("Error creating bot:", error);
@@ -250,74 +233,10 @@ export async function PUT(request: NextRequest) {
       );
     }
     
-    // 本番環境ではSupabaseのみを使用
-    if (!useMock) {
-      try {
-        console.log(`Supabaseでボット(ID: ${body.id})を更新します`);
-        // Supabaseでボットを更新
-        const updateFields = [];
-        
-        if (body.name) updateFields.push(`name = '${body.name}'`);
-        if (body.clientId) updateFields.push(`client_id = '${body.clientId}'`);
-        if (body.token) updateFields.push(`encrypted_token = '${body.token}'`);
-        if (body.avatarUrl !== undefined) {
-          updateFields.push(`avatar_url = ${body.avatarUrl ? `'${body.avatarUrl}'` : 'NULL'}`);
-        }
-        if (body.status) updateFields.push(`status = '${body.status}'`);
-        if (body.settings) {
-          updateFields.push(`settings = jsonb_set(settings, '{}', '${JSON.stringify(body.settings)}')`);
-        }
-        
-        if (updateFields.length > 0) {
-          const result = await use_mcp_tool({
-            server_name: 'discord-bot-supabase-mcp',
-            tool_name: 'execute_sql_query',
-            arguments: {
-              query: `
-                BEGIN;
-                UPDATE public.bots
-                SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ${body.id}
-                RETURNING *;
-                COMMIT;
-              `
-            }
-          });
-          
-          console.log('Supabase更新結果:', result ? '成功' : '失敗');
-          
-          if (result && result.rows && result.rows.length > 0) {
-            console.log('Supabaseでボットが更新されました');
-            // Don't return the encrypted token in the response
-            const { encrypted_token, ...botWithoutToken } = result.rows[0];
-            return NextResponse.json(botWithoutToken);
-          } else {
-            // Supabaseでの更新に失敗した場合はエラーを返す
-            console.error("Supabaseでのボット更新に失敗しました");
-            return NextResponse.json(
-              { error: "Failed to update bot in database" },
-              { status: 500 }
-            );
-          }
-        } else {
-          console.log('更新するフィールドがありません');
-          return NextResponse.json(
-            { error: "No fields to update" },
-            { status: 400 }
-          );
-        }
-      } catch (supabaseError) {
-        console.error("Error updating bot in Supabase:", supabaseError);
-        const errorMessage = supabaseError instanceof Error ? supabaseError.message : 'Unknown error';
-        return NextResponse.json(
-          { error: `Database error: ${errorMessage}` },
-          { status: 500 }
-        );
-      }
-    }
-    // 開発環境でモックモードが指定された場合のみモックデータを更新
-    else {
+    if (useMock) {
+      // モックモードの場合はモックデータを更新
       console.log(`モックモード: モックデータでボット(ID: ${body.id})を更新します`);
+      
       // Find the bot to update in mock data
       const botIndex = mockBots.findIndex(bot => bot.id === body.id);
       
@@ -350,10 +269,59 @@ export async function PUT(request: NextRequest) {
       
       return NextResponse.json(botWithoutToken);
     }
+    
+    // 本番モードの場合は直接Supabaseクライアントを使用
+    try {
+      console.log(`Supabaseでボット(ID: ${body.id})を更新します`);
+      
+      const numericId = parseInt(body.id, 10);
+      if (isNaN(numericId)) {
+        return NextResponse.json(
+          { error: "Invalid ID format" },
+          { status: 400 }
+        );
+      }
+      
+      // 更新するフィールドを準備
+      const updateData: any = {};
+      
+      if (body.name) updateData.name = body.name;
+      if (body.clientId) updateData.client_id = body.clientId;
+      if (body.token) updateData.encrypted_token = body.token;
+      if (body.avatarUrl !== undefined) updateData.avatar_url = body.avatarUrl;
+      if (body.status) updateData.status = body.status;
+      if (body.settings) updateData.settings = { ...body.settings };
+      
+      if (Object.keys(updateData).length === 0) {
+        console.log('更新するフィールドがありません');
+        return NextResponse.json(
+          { error: "No fields to update" },
+          { status: 400 }
+        );
+      }
+      
+      // ボットを更新
+      const updatedBot = await botService.updateBot(numericId, updateData);
+      console.log('Supabaseでボットが更新されました');
+      
+      // Don't return the encrypted token in the response
+      const { encrypted_token, ...botWithoutToken } = updatedBot;
+      
+      return NextResponse.json(botWithoutToken);
+    } catch (supabaseError) {
+      console.error("Error updating bot in Supabase:", supabaseError);
+      
+      // Supabaseでの更新に失敗した場合はエラーを返す
+      return NextResponse.json(
+        { error: "Failed to update bot in database" },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error("Error updating bot:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: "Failed to update bot" },
+      { error: `Failed to update bot: ${errorMessage}` },
       { status: 500 }
     );
   }
@@ -378,48 +346,10 @@ export async function DELETE(request: NextRequest) {
     );
   }
   
-  // 本番環境ではSupabaseのみを使用
-  if (!useMock) {
-    try {
-      console.log(`Supabaseからボット(ID: ${id})を削除します`);
-      // Supabaseでボットを削除
-      const result = await use_mcp_tool({
-        server_name: 'discord-bot-supabase-mcp',
-        tool_name: 'execute_sql_query',
-        arguments: {
-          query: `
-            BEGIN;
-            DELETE FROM public.bots WHERE id = ${id};
-            COMMIT;
-          `
-        }
-      });
-      
-      console.log('Supabase削除結果:', result ? '成功' : '失敗');
-      
-      // 成功した場合は成功レスポンスを返す
-      if (result) {
-        return NextResponse.json({ success: true });
-      } else {
-        // Supabaseでの削除に失敗した場合はエラーを返す
-        console.error("Supabaseでのボット削除に失敗しました");
-        return NextResponse.json(
-          { error: "Failed to delete bot from database" },
-          { status: 500 }
-        );
-      }
-    } catch (supabaseError) {
-      console.error("Error deleting bot from Supabase:", supabaseError);
-      const errorMessage = supabaseError instanceof Error ? supabaseError.message : 'Unknown error';
-      return NextResponse.json(
-        { error: `Database error: ${errorMessage}` },
-        { status: 500 }
-      );
-    }
-  }
-  // 開発環境でモックモードが指定された場合のみモックデータから削除
-  else {
+  if (useMock) {
+    // モックモードの場合はモックデータから削除
     console.log(`モックモード: モックデータからボット(ID: ${id})を削除します`);
+    
     // Find the bot to delete from mock data
     const botIndex = mockBots.findIndex(bot => bot.id === id);
     
@@ -436,5 +366,32 @@ export async function DELETE(request: NextRequest) {
     console.log('モックデータからボットが削除されました');
     
     return NextResponse.json({ success: true });
+  }
+  
+  // 本番モードの場合は直接Supabaseクライアントを使用
+  try {
+    console.log(`Supabaseからボット(ID: ${id})を削除します`);
+    
+    const numericId = parseInt(id, 10);
+    if (isNaN(numericId)) {
+      return NextResponse.json(
+        { error: "Invalid ID format" },
+        { status: 400 }
+      );
+    }
+    
+    // ボットを削除
+    await botService.deleteBot(numericId);
+    console.log('Supabaseからボットが削除されました');
+    
+    return NextResponse.json({ success: true });
+  } catch (supabaseError) {
+    console.error("Error deleting bot from Supabase:", supabaseError);
+    
+    // Supabaseでの削除に失敗した場合はエラーを返す
+    return NextResponse.json(
+      { error: "Failed to delete bot from database" },
+      { status: 500 }
+    );
   }
 }
